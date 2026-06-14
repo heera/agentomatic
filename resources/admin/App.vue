@@ -1,0 +1,376 @@
+<script>
+import { createApi } from './api.js';
+import SettingsForm from './components/SettingsForm.vue';
+import ReadinessPanel from './components/ReadinessPanel.vue';
+import DiscoveryHub from './components/DiscoveryHub.vue';
+import ActivityPanel from './components/ActivityPanel.vue';
+
+export default {
+  name: 'AgentifyApp',
+  components: { SettingsForm, ReadinessPanel, DiscoveryHub, ActivityPanel },
+  props: {
+    boot: { type: Object, required: true },
+  },
+  data() {
+    const fromHash = (window.location.hash || '').replace(/^#/, '');
+    return {
+      api: createApi(this.boot),
+      // Restore the tab from the URL hash so a refresh keeps the same page.
+      tab: ['dashboard', 'settings', 'readiness', 'discovery'].includes(fromHash) ? fromHash : 'dashboard',
+      settings: JSON.parse(JSON.stringify(this.boot.settings || {})),
+      readiness: this.boot.readiness || [],
+      refreshingReadiness: false,
+      discovery: this.boot.discovery || {},
+      refreshingDiscovery: false,
+      activity: {},
+      activityLoaded: false,
+      refreshingActivity: false,
+      entityTypes: this.boot.entityTypes || ['Person', 'Organization'],
+      postTypes: this.boot.postTypes || [],
+      knownTrainers: this.boot.knownTrainers || [],
+      endpoints: this.boot.endpoints || {},
+      version: this.boot.version || '',
+      saving: false,
+      notice: null,
+      ringReady: false,
+      savedSnapshot: JSON.stringify(this.boot.settings || {}),
+    };
+  },
+  computed: {
+    score() {
+      if (!this.readiness.length) return { pass: 0, total: 0, pct: 0 };
+      const pass = this.readiness.filter((c) => c.status === 'pass').length;
+      const total = this.readiness.length;
+      return { pass, total, pct: Math.round((pass / total) * 100) };
+    },
+    tone() {
+      return this.score.pct >= 80 ? 'good' : this.score.pct >= 50 ? 'ok' : 'low';
+    },
+    issues() {
+      return this.readiness.filter((c) => c.status !== 'pass').length;
+    },
+    dirty() {
+      return JSON.stringify(this.settings) !== this.savedSnapshot;
+    },
+    circumference() {
+      return 2 * Math.PI * 52;
+    },
+    dashOffset() {
+      // Starts empty (full offset), animates to the score once mounted.
+      return this.ringReady ? this.circumference * (1 - this.score.pct / 100) : this.circumference;
+    },
+    host() {
+      const url = this.endpoints.robots || this.endpoints.llms || '';
+      try {
+        return new URL(url).host;
+      } catch (e) {
+        return '';
+      }
+    },
+    tabs() {
+      return [
+        { id: 'dashboard', label: 'Dashboard' },
+        { id: 'settings', label: 'Settings' },
+        { id: 'readiness', label: 'Readiness' },
+        { id: 'discovery', label: 'Discovery' },
+      ];
+    },
+    dashSummary() {
+      const c = (this.discovery && this.discovery.counts) || {};
+      return {
+        readiness: this.score,
+        tone: this.tone,
+        providers: c.resources || 0,
+        capabilities: c.capabilities || 0,
+        tools: c.tools || 0,
+      };
+    },
+    pageMeta() {
+      return (
+        {
+          dashboard: {
+            title: 'Dashboard',
+            description: 'An overview of your agent-readiness — what you expose, and who is reading it.',
+          },
+          settings: {
+            title: 'Settings',
+            description: 'Configure the signals Agentify exposes and the identity agents read.',
+          },
+          readiness: {
+            title: 'Readiness',
+            description: 'How machine-legible your site is right now — a checklist of pass, warn and fail checks.',
+          },
+          discovery: {
+            title: 'Discovery',
+            description: 'The single document agents read to understand this site — every registered plugin aggregated into one place.',
+          },
+        }[this.tab] || { title: '', description: '' }
+      );
+    },
+    discoveryDocs() {
+      const e = (this.discovery && this.discovery.endpoints) || {};
+      return [
+        { label: 'discovery.json', url: e.discovery },
+        { label: 'agent-card.json', url: e.agentCard },
+        { label: 'mcp.json', url: e.mcp },
+      ].filter((d) => d.url);
+    },
+    noticeTitle() {
+      return { success: 'Success', error: 'Error', warning: 'Warning' }[this.notice?.type] || 'Notice';
+    },
+  },
+  watch: {
+    tab(val) {
+      // Reflect the active tab in the URL hash (no history spam, no reload).
+      if (window.location.hash.replace(/^#/, '') !== val) {
+        window.history.replaceState(null, '', `#${val}`);
+      }
+      // Activity data is lazy-loaded the first time the Dashboard is opened.
+      if (val === 'dashboard' && !this.activityLoaded) {
+        this.refreshActivity();
+      }
+    },
+  },
+  mounted() {
+    window.requestAnimationFrame(() => {
+      this.ringReady = true;
+    });
+    // Make sure the hash reflects the initial tab, and follow back/forward + manual edits.
+    if (window.location.hash.replace(/^#/, '') !== this.tab) {
+      window.history.replaceState(null, '', `#${this.tab}`);
+    }
+    window.addEventListener('hashchange', this.syncTabFromHash);
+    // Dashboard is the default landing (and a possible deep-link): the watcher
+    // won't fire on the initial value, so load its data here.
+    if (this.tab === 'dashboard') {
+      this.refreshActivity();
+    }
+  },
+  beforeUnmount() {
+    window.removeEventListener('hashchange', this.syncTabFromHash);
+  },
+  methods: {
+    reloadPlugin() {
+      // Drop any #tab and do a full reload, landing on the default page.
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      window.location.reload();
+    },
+    syncTabFromHash() {
+      const h = window.location.hash.replace(/^#/, '');
+      if (h && h !== this.tab && this.tabs.some((t) => t.id === h)) {
+        this.tab = h;
+      }
+    },
+    async save() {
+      this.saving = true;
+      this.notice = null;
+      try {
+        const res = await this.api.saveSettings(this.settings);
+        this.settings = res.settings;
+        this.savedSnapshot = JSON.stringify(res.settings);
+        this.readiness = res.readiness || this.readiness;
+        this.flash('success', 'Settings saved.');
+      } catch (e) {
+        this.flash('error', e.message);
+      } finally {
+        this.saving = false;
+      }
+    },
+    async refreshReadiness() {
+      this.refreshingReadiness = true;
+      try {
+        this.readiness = await this.api.getReadiness();
+        this.flash('success', `Readiness re-run — ${this.score.pass}/${this.score.total} checks pass.`);
+      } catch (e) {
+        this.flash('error', e.message);
+      } finally {
+        this.refreshingReadiness = false;
+      }
+    },
+    async refreshDiscovery() {
+      this.refreshingDiscovery = true;
+      try {
+        this.discovery = await this.api.getDiscoveryHub();
+        this.flash('success', 'Discovery registry re-scanned.');
+      } catch (e) {
+        this.flash('error', e.message);
+      } finally {
+        this.refreshingDiscovery = false;
+      }
+    },
+    async refreshActivity() {
+      this.refreshingActivity = true;
+      try {
+        this.activity = await this.api.getActivity();
+        this.activityLoaded = true;
+      } catch (e) {
+        this.flash('error', e.message);
+      } finally {
+        this.refreshingActivity = false;
+      }
+    },
+    async clearActivity() {
+      try {
+        this.activity = await this.api.clearActivity();
+        this.flash('success', 'Activity log cleared.');
+      } catch (e) {
+        this.flash('error', e.message);
+      }
+    },
+    flash(type, text) {
+      this.notice = { type, text };
+      window.clearTimeout(this._noticeTimer);
+      this._noticeTimer = window.setTimeout(() => {
+        this.notice = null;
+      }, 4000);
+    },
+  },
+};
+</script>
+
+<template>
+  <div class="ar">
+    <header class="ar__bar">
+      <button type="button" class="ar__brand" aria-label="Agentify — reload" @click="reloadPlugin">
+        <span class="ar__mark" aria-hidden="true">
+          <svg class="ar__logo" viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <path class="ar__logo-line" d="M4.5 20.5 L12 3.5 L19.5 20.5" />
+            <path class="ar__logo-accent" d="M8 13.6 H16" />
+          </svg>
+        </span>
+        <span class="ar__brandtext">
+          <span class="ar__name">Agentify</span>
+          <span v-if="version" class="ar__ver">Version - {{ version }}</span>
+        </span>
+      </button>
+
+      <nav class="ar__tabs" role="tablist">
+        <button
+          v-for="t in tabs"
+          :key="t.id"
+          class="ar__tab"
+          :class="{ 'is-active': tab === t.id }"
+          role="tab"
+          :aria-selected="tab === t.id"
+          @click="tab = t.id"
+        >
+          {{ t.label }}
+        </button>
+      </nav>
+
+    </header>
+
+    <Teleport to="body">
+      <transition name="ar-toast">
+        <div v-if="notice" class="ar-toast" :class="`is-${notice.type}`" role="status" aria-live="polite">
+          <span class="ar-toast__bar" aria-hidden="true"></span>
+          <div class="ar-toast__body">
+            <strong class="ar-toast__title">{{ noticeTitle }}</strong>
+            <span class="ar-toast__msg">{{ notice.text }}</span>
+          </div>
+        </div>
+      </transition>
+    </Teleport>
+
+    <div class="ar__pagehead">
+      <h1 class="ar__pagehead-title">{{ pageMeta.title }}</h1>
+      <p v-if="pageMeta.description" class="ar__pagehead-desc">{{ pageMeta.description }}</p>
+    </div>
+
+    <main class="ar__body is-railed">
+      <div class="ar__main">
+        <SettingsForm
+          v-show="tab === 'settings'"
+          v-model:settings="settings"
+          :entity-types="entityTypes"
+          :post-types="postTypes"
+          :known-trainers="knownTrainers"
+          :endpoints="endpoints"
+          :saving="saving"
+          @save="save"
+        />
+        <ReadinessPanel
+          v-show="tab === 'readiness'"
+          :checks="readiness"
+          :refreshing="refreshingReadiness"
+          @refresh="refreshReadiness"
+        />
+        <DiscoveryHub
+          v-show="tab === 'discovery'"
+          :data="discovery"
+          :refreshing="refreshingDiscovery"
+          @refresh="refreshDiscovery"
+        />
+        <ActivityPanel
+          v-show="tab === 'dashboard'"
+          :data="activity"
+          :summary="dashSummary"
+          :refreshing="refreshingActivity"
+          @refresh="refreshActivity"
+          @clear="clearActivity"
+          @navigate="tab = $event"
+        />
+      </div>
+
+      <aside class="ar__rail">
+        <div class="ar-rail-card ar-rail-card--readiness">
+          <p class="ar-rail-card__label">Readiness</p>
+          <div class="ar-rail-readiness">
+            <div class="ar-rail-gauge" role="img" :aria-label="`Readiness ${score.pct}%`">
+              <svg viewBox="0 0 116 116">
+                <circle class="ar-rail-gauge__track" cx="58" cy="58" r="52" />
+                <circle
+                  class="ar-rail-gauge__fill"
+                  cx="58"
+                  cy="58"
+                  r="52"
+                  :data-tone="tone"
+                  :stroke-dasharray="circumference"
+                  :stroke-dashoffset="dashOffset"
+                />
+              </svg>
+              <span class="ar-rail-gauge__num">{{ score.pct }}<small>%</small></span>
+            </div>
+            <div class="ar-rail-readiness__meta">
+              <div class="ar-rail-status" :data-tone="tone">
+                <strong>{{ score.pass }}/{{ score.total }}</strong>
+                <span>pass</span>
+              </div>
+              <button v-if="issues" type="button" class="ar-rail-link" @click="tab = 'readiness'">
+                {{ issues }} to review →
+              </button>
+              <p v-else class="ar-rail-allgood">All checks pass.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="ar-rail-card">
+          <p class="ar-rail-card__label">Live endpoints</p>
+          <ul class="ar-rail-links">
+            <li><a :href="endpoints.llms" target="_blank" rel="noopener">llms.txt</a></li>
+            <li><a :href="endpoints.llmsFull" target="_blank" rel="noopener">llms-full.txt</a></li>
+            <li><a :href="endpoints.robots" target="_blank" rel="noopener">robots.txt</a></li>
+          </ul>
+        </div>
+
+        <div v-if="discoveryDocs.length" class="ar-rail-card">
+          <p class="ar-rail-card__label">Discovery docs</p>
+          <ul class="ar-rail-links">
+            <li v-for="d in discoveryDocs" :key="d.label">
+              <a :href="d.url" target="_blank" rel="noopener">{{ d.label }}</a>
+            </li>
+          </ul>
+        </div>
+
+        <div v-if="tab === 'settings'" class="ar-rail-save">
+          <p class="ar-rail-save__status" :class="{ 'is-dirty': dirty }">
+            {{ dirty ? 'Unsaved changes' : 'All changes saved' }}
+          </p>
+          <button type="button" class="ar-btn ar-btn--block" :disabled="saving || !dirty" @click="save">
+            {{ saving ? 'Saving…' : 'Save changes' }}
+          </button>
+        </div>
+      </aside>
+    </main>
+  </div>
+</template>

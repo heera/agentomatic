@@ -1,0 +1,331 @@
+<script>
+import TagInput from './TagInput.vue';
+
+export default {
+  name: 'SettingsForm',
+  components: { TagInput },
+  props: {
+    settings: { type: Object, required: true },
+    entityTypes: { type: Array, default: () => ['Person', 'Organization'] },
+    postTypes: { type: Array, default: () => [] },
+    knownTrainers: { type: Array, default: () => [] },
+    endpoints: { type: Object, default: () => ({}) },
+    saving: { type: Boolean, default: false },
+  },
+  emits: ['save'],
+  data() {
+    return { typeQuery: '' };
+  },
+  computed: {
+    filteredPostTypes() {
+      const q = this.typeQuery.trim().toLowerCase();
+      if (!q) return this.postTypes;
+      return this.postTypes.filter(
+        (pt) =>
+          pt.label.toLowerCase().includes(q) ||
+          pt.slug.toLowerCase().includes(q) ||
+          (pt.source && pt.source.toLowerCase().includes(q)),
+      );
+    },
+    selectedTypeCount() {
+      const sel = Array.isArray(this.settings.post_types) ? this.settings.post_types : [];
+      const slugs = this.postTypes.map((p) => p.slug);
+      return sel.filter((s) => slugs.includes(s)).length;
+    },
+    blockedCount() {
+      return Array.isArray(this.settings.blocked_trainers) ? this.settings.blocked_trainers.length : 0;
+    },
+    identity() {
+      // Guard against a missing identity object on first paint.
+      if (!this.settings.identity) {
+        this.settings.identity = {
+          entity_type: 'Person',
+          name: '',
+          role: '',
+          about: '',
+          contact_email: '',
+          expertise: [],
+          same_as: [],
+        };
+      }
+      return this.settings.identity;
+    },
+    features() {
+      return [
+        { key: 'enable_llms_txt', label: '/llms.txt index', hint: 'A link map of your pages, topics and recent posts.' },
+        { key: 'enable_llms_full', label: '/llms-full.txt full text', hint: 'Every page and recent post in one ingestible document.' },
+        { key: 'enable_markdown', label: 'Markdown delivery', hint: 'Serve any page as markdown via .md URLs or Accept negotiation.' },
+        { key: 'enable_robots', label: 'robots.txt rules', hint: 'Content-signal intent plus a model-training crawler blocklist.' },
+        { key: 'enable_schema', label: 'JSON-LD schema', hint: 'WebSite, entity and article structured data (defers to SEO plugins).' },
+        { key: 'enable_activity', label: 'Agent activity log', hint: 'Record which AI agents request your discovery & llms endpoints (local-only, no IP).' },
+      ];
+    },
+    signal() {
+      // Content-Signal is a fixed vocabulary; guard against a missing object.
+      if (!this.settings.content_signal || typeof this.settings.content_signal !== 'object') {
+        this.settings.content_signal = { search: true, ai_input: true, ai_train: false };
+      }
+      return this.settings.content_signal;
+    },
+    signalRows() {
+      return [
+        { key: 'search', label: 'Search engines', hint: 'Allow indexing for traditional search.' },
+        { key: 'ai_input', label: 'AI input (RAG & citation)', hint: 'Allow agents to read, ground and cite your content.' },
+        { key: 'ai_train', label: 'AI training', hint: 'Allow your content to be used as model-training data.' },
+      ];
+    },
+    signalPreview() {
+      const yn = (v) => (v ? 'yes' : 'no');
+      return `Content-Signal: search=${yn(this.signal.search)}, ai-input=${yn(this.signal.ai_input)}, ai-train=${yn(this.signal.ai_train)}`;
+    },
+    isOrg() {
+      return this.identity.entity_type === 'Organization';
+    },
+    namePlaceholder() {
+      return this.isOrg ? 'Acme Inc.' : 'Jane Doe';
+    },
+    aboutPlaceholder() {
+      return this.isOrg
+        ? 'One factual sentence on what your organization does and its focus.'
+        : 'One factual sentence stating who you are and your expertise.';
+    },
+    expertiseLabel() {
+      return this.isOrg ? 'Areas of expertise' : 'Expertise topics';
+    },
+    trainerSuggestions() {
+      const current = this.settings.blocked_trainers || [];
+      return this.knownTrainers.filter((t) => !current.includes(t));
+    },
+    isDefaultTrainers() {
+      const a = [...(this.settings.blocked_trainers || [])].sort();
+      const b = [...this.knownTrainers].sort();
+      return a.length === b.length && a.every((v, i) => v === b[i]);
+    },
+  },
+  methods: {
+    isUrl(value) {
+      return /^https?:\/\//i.test(value);
+    },
+    addTrainer(name) {
+      if (!Array.isArray(this.settings.blocked_trainers)) this.settings.blocked_trainers = [];
+      if (!this.settings.blocked_trainers.includes(name)) this.settings.blocked_trainers.push(name);
+    },
+    resetTrainers() {
+      this.settings.blocked_trainers = [...this.knownTrainers];
+    },
+    isTypeOn(slug) {
+      return Array.isArray(this.settings.post_types) && this.settings.post_types.includes(slug);
+    },
+    toggleType(slug) {
+      if (!Array.isArray(this.settings.post_types)) this.settings.post_types = [];
+      const list = this.settings.post_types;
+      const i = list.indexOf(slug);
+      if (i === -1) list.push(slug);
+      else list.splice(i, 1);
+    },
+    selectAllTypes() {
+      this.settings.post_types = this.postTypes.map((p) => p.slug);
+    },
+  },
+};
+</script>
+
+<template>
+  <form class="ar-form" @submit.prevent="$emit('save')">
+    <!-- Features ------------------------------------------------------- -->
+    <section class="ar-card">
+      <h2 class="ar-card__title">Features</h2>
+      <p class="ar-card__lead">Toggle each agent-readiness signal.</p>
+
+      <label v-for="f in features" :key="f.key" class="ar-toggle">
+        <input v-model="settings[f.key]" type="checkbox" />
+        <span class="ar-toggle__track" aria-hidden="true"></span>
+        <span class="ar-toggle__text">
+          <strong>{{ f.label }}</strong>
+          <small>{{ f.hint }}</small>
+        </span>
+      </label>
+
+      <div class="ar-field ar-field--inline">
+        <label for="ar-full-count">Posts in /llms-full.txt</label>
+        <input
+          id="ar-full-count"
+          v-model.number="settings.llms_full_posts"
+          type="number"
+          min="1"
+          max="500"
+          class="ar-input ar-input--sm"
+        />
+      </div>
+    </section>
+
+    <!-- Content types -------------------------------------------------- -->
+    <section v-if="postTypes.length" class="ar-card">
+      <h2 class="ar-card__title">Content types</h2>
+      <p class="ar-card__lead">
+        Which content agents see — in llms.txt, the full-text edition, markdown delivery and schema.
+        Enable products or custom post types to cover e-commerce and beyond.
+      </p>
+      <div class="ar-types-bar">
+        <input
+          v-if="postTypes.length > 8"
+          v-model="typeQuery"
+          type="search"
+          class="ar-input ar-types-search"
+          placeholder="Filter types…"
+        />
+        <span class="ar-types-count">{{ selectedTypeCount }} / {{ postTypes.length }} enabled</span>
+        <button type="button" class="ar-linkbtn" @click="selectAllTypes">Select all</button>
+      </div>
+
+      <div class="ar-types-scroll">
+        <div class="ar-types-grid">
+          <label
+            v-for="pt in filteredPostTypes"
+            :key="pt.slug"
+            class="ar-type"
+            :class="{ 'is-on': isTypeOn(pt.slug) }"
+          >
+            <input type="checkbox" :checked="isTypeOn(pt.slug)" @change="toggleType(pt.slug)" />
+            <span class="ar-type__check" aria-hidden="true"></span>
+            <span class="ar-type__body">
+              <span class="ar-type__label">{{ pt.label }}</span>
+              <span class="ar-type__meta">
+                <span v-if="pt.source" class="ar-type__src">{{ pt.source }}</span>
+                <code>{{ pt.slug }}</code>
+              </span>
+            </span>
+          </label>
+          <p v-if="!filteredPostTypes.length" class="ar-types-empty">No types match “{{ typeQuery }}”.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Identity ------------------------------------------------------- -->
+    <section class="ar-card">
+      <h2 class="ar-card__title">Identity</h2>
+      <p class="ar-card__lead">The highest-signal data an agent reads — who owns this site and what it's about.</p>
+
+      <div class="ar-grid">
+        <div class="ar-field">
+          <label for="ar-type">Entity type</label>
+          <select id="ar-type" v-model="identity.entity_type" class="ar-input">
+            <option v-for="t in entityTypes" :key="t" :value="t">{{ t }}</option>
+          </select>
+        </div>
+        <div class="ar-field">
+          <label for="ar-name">Name</label>
+          <input id="ar-name" v-model="identity.name" type="text" class="ar-input" :placeholder="namePlaceholder" />
+        </div>
+        <div v-if="identity.entity_type === 'Person'" class="ar-field">
+          <label for="ar-role">Role / title</label>
+          <input id="ar-role" v-model="identity.role" type="text" class="ar-input" placeholder="Software architect" />
+        </div>
+      </div>
+
+      <div class="ar-field">
+        <label for="ar-about">Profile sentence</label>
+        <textarea
+          id="ar-about"
+          v-model="identity.about"
+          class="ar-input"
+          rows="3"
+          :placeholder="aboutPlaceholder"
+        ></textarea>
+        <small class="ar-field__hint">Used at the top of llms.txt, the full-text edition, and the JSON-LD description.</small>
+      </div>
+
+      <div class="ar-field">
+        <label for="ar-contact">Public contact email <span class="ar-field__tag">optional</span></label>
+        <input id="ar-contact" v-model="identity.contact_email" type="email" class="ar-input" placeholder="hello@example.com" />
+        <small class="ar-field__hint">
+          Published in <code>discovery.json</code> so agents can reach you. Leave empty to expose none —
+          your WordPress admin email is never used.
+        </small>
+      </div>
+
+      <div class="ar-field">
+        <label>{{ expertiseLabel }}</label>
+        <TagInput v-model="identity.expertise" placeholder="Add a topic, press Enter" />
+        <small class="ar-field__hint">Feeds the {{ isOrg ? 'expertise' : 'Expertise' }} list and schema <code>knowsAbout</code>.</small>
+      </div>
+
+      <div class="ar-field">
+        <label>sameAs profiles</label>
+        <TagInput v-model="identity.same_as" placeholder="https://github.com/you" />
+        <small class="ar-field__hint">
+          Public profile URLs (GitHub, LinkedIn, X…) that help agents resolve your entity.
+          <span v-if="identity.same_as.some((u) => !isUrl(u))" class="ar-warn">Some entries are not full https:// URLs.</span>
+        </small>
+      </div>
+    </section>
+
+    <!-- Crawler policy ------------------------------------------------- -->
+    <section class="ar-card">
+      <h2 class="ar-card__title">Crawler policy</h2>
+      <p class="ar-card__lead">
+        Two layers of control: a <strong>Content-Signal</strong> that declares how your content may be
+        used (compliant bots honor it), and a hard <code>Disallow</code> for AI-training crawlers that
+        ignore it. Search and read/cite bots stay allowed.
+      </p>
+
+      <div class="ar-field">
+        <label>Usage declaration <span class="ar-field__tag">Content-Signal</span></label>
+        <div class="ar-signals">
+          <label v-for="row in signalRows" :key="row.key" class="ar-toggle">
+            <input v-model="signal[row.key]" type="checkbox" />
+            <span class="ar-toggle__track" aria-hidden="true"></span>
+            <span class="ar-toggle__text">
+              <strong>{{ row.label }}</strong>
+              <small>{{ row.hint }}</small>
+            </span>
+            <span class="ar-signal-state" :class="signal[row.key] ? 'is-allow' : 'is-block'">
+              {{ signal[row.key] ? 'Allowed' : 'Blocked' }}
+            </span>
+          </label>
+        </div>
+        <small class="ar-field__hint">Emitted in robots.txt as <code>{{ signalPreview }}</code></small>
+      </div>
+
+      <div class="ar-field">
+        <!-- Allowed: an explicit list to refuse specific crawlers. -->
+        <label v-if="signal.ai_train">Block specific crawlers <span class="ar-field__tag">optional</span></label>
+        <!-- Blocked: no specifics — just a one-line note. -->
+        <small v-else class="ar-field__hint">
+          {{ blockedCount
+            ? 'Known AI-training crawlers are also hard-blocked by name for stronger enforcement.'
+            : 'No crawlers are hard-blocked — relying on the ai-train=no signal alone.' }}
+        </small>
+
+        <div v-show="signal.ai_train" class="ar-enforce-body">
+          <TagInput v-model="settings.blocked_trainers" placeholder="Add a custom user-agent" />
+          <div v-if="trainerSuggestions.length" class="ar-suggest">
+            <span class="ar-suggest__label">Add a known crawler</span>
+            <button
+              v-for="t in trainerSuggestions"
+              :key="t"
+              type="button"
+              class="ar-suggest__chip"
+              @click="addTrainer(t)"
+            >+ {{ t }}</button>
+          </div>
+          <small class="ar-field__hint">
+            Refused by name with <code>Disallow: /</code>.
+            <span v-if="signal.ai_train">Training is Allowed, so only the crawlers you list here are blocked.</span>
+            <button v-if="!isDefaultTrainers" type="button" class="ar-linkbtn" @click="resetTrainers">Reset to defaults</button>
+          </small>
+        </div>
+      </div>
+    </section>
+
+    <!-- Endpoints (hidden when the rail shows them; returns on narrow screens) -->
+    <section class="ar-card ar-card--muted ar-card--endpoints">
+      <h2 class="ar-card__title">Live endpoints</h2>
+      <ul class="ar-links">
+        <li><a :href="endpoints.llms" target="_blank" rel="noopener">{{ endpoints.llms }}</a></li>
+        <li><a :href="endpoints.llmsFull" target="_blank" rel="noopener">{{ endpoints.llmsFull }}</a></li>
+        <li><a :href="endpoints.robots" target="_blank" rel="noopener">{{ endpoints.robots }}</a></li>
+      </ul>
+    </section>
+  </form>
+</template>
