@@ -8,19 +8,25 @@ Stable tag: 1.0.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Make your site legible to AI agents — llms.txt, markdown, JSON-LD, a /.well-known/discovery.json registry and MCP tools. Lightweight, no SEO bloat.
+Control which AIs may train on your content, see which AI bots read your site, and serve clean machine-readable pages. Lightweight, no SEO bloat.
 
 == Description ==
 
-Agentify makes your content and capabilities legible to search engines, AI assistants and modern crawlers — using the standards they already consume, without the weight of an SEO suite. It ships five focused signals and a one-screen readiness report so you can see exactly how machine-readable your site is.
+Agentify is a lightweight toolkit for the AI era. **Control** which AI crawlers may train on your content, **see** which AI agents are actually reading your machine-readable endpoints, and **serve** clean, machine-readable versions of your pages — with no heavy SEO suite. A one-screen readiness report shows how machine-readable your site is and what's still missing.
 
-**What it adds**
+**Control — who may use your content**
 
-* **/llms.txt** — an [llmstxt.org](https://llmstxt.org) index of your pages, topics and recent posts, with an About/Expertise identity block up top.
-* **/llms-full.txt** — the full-text edition: every page and recent post concatenated into one document an agent can ingest in a single request.
+* **robots.txt content-signals + AI-training blocklist** — declare your content-usage policy and block named model-training crawlers (GPTBot, CCBot, ClaudeBot, Google-Extended, Bytespider, …) by name, while leaving read/cite bots free.
+
+**Visibility — who is reading you**
+
+* **Agent activity log** — a dashboard of which AI crawlers and agents actually fetch your content and discovery endpoints (GPTBot, Claude, Perplexity, Googlebot, …), recorded first-party with no IP logging.
+
+**Content — clean, machine-readable output**
+
 * **Markdown delivery** — request any page as clean markdown by appending `.md` to its URL, or with an `Accept: text/markdown` header.
-* **JSON-LD** — WebSite + Person/Organization entity, plus BlogPosting and BreadcrumbList on posts. Automatically **defers to Yoast, Rank Math, SEOPress, AIOSEO and The SEO Framework** so you never ship duplicate schema.
-* **robots.txt** — a content-signal usage declaration and a model-training crawler blocklist, while leaving read/cite bots free.
+* **/llms.txt** & **/llms-full.txt** — an [llmstxt.org](https://llmstxt.org) index of your pages, topics and recent posts, plus a full-text edition an agent can ingest in a single request.
+* **JSON-LD** — WebSite + Person/Organization, plus BlogPosting and BreadcrumbList on posts. Automatically **defers to Yoast, Rank Math, SEOPress, AIOSEO and The SEO Framework** so you never ship duplicate schema.
 
 **Machine discovery & MCP**
 
@@ -37,7 +43,7 @@ Honest framing: the content signals above (JSON-LD, sitemap, robots, llms.txt, m
 
 **Why it's different**
 
-Most "llms.txt" plugins stop at the index file. Agentify pairs that with markdown content-negotiation, full structured data, robots content-signals **and a machine-discovery registry** as one coherent, lightweight package — and tells you what's still missing.
+Other plugins do one slice — an llms.txt file, or an AI-bot blocker, or structured data. Agentify combines content control, agent-traffic visibility, clean machine-readable output **and** a forward-looking discovery layer in one coherent, lightweight package — and tells you what's still missing.
 
 == Installation ==
 
