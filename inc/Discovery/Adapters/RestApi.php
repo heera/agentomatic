@@ -112,17 +112,22 @@ final class RestApi {
 			);
 		}
 
-		/**
-		 * Namespace prefixes to skip (core, this plugin, dedicated adapters).
-		 *
-		 * @param string[] $skip Prefixes.
-		 */
 		$skip = (array) apply_filters( 'agentify_rest_skip_namespaces', self::SKIP );
 
-		// 2. Third-party namespaces that never declared themselves — surface the
-		//    API so it is at least discoverable (no intent labels we can't infer).
+		/**
+		 * Allow-list of third-party REST namespaces to PUBLISH. Default is the
+		 * owner's "Detected REST APIs" checklist (a setting) — nothing third-party
+		 * is published unless explicitly opted in, so the document stays clean
+		 * (no automatic rule reliably tells an agent-useful API from internal
+		 * plumbing, so the owner decides).
+		 *
+		 * @param string[] $allowed Namespace names to publish.
+		 */
+		$allowed = (array) apply_filters( 'agentify_rest_namespaces', self::allowed() );
+
+		// 2. Only the third-party namespaces the owner opted in (or a filter added).
 		foreach ( $namespaces as $namespace ) {
-			if ( ! self::is_third_party( $namespace, $skip ) ) {
+			if ( ! self::is_third_party( $namespace, $skip ) || ! self::is_allowed( $namespace, $allowed ) ) {
 				continue;
 			}
 			$registry->register(
@@ -130,13 +135,46 @@ final class RestApi {
 					'id'          => self::slug( $namespace ),
 					'title'       => (string) $namespace,
 					'type'        => 'x-rest-api',
-					'description' => __( 'Auto-discovered REST API namespace.', 'agentify' ),
+					'description' => __( 'REST API namespace published via discovery.', 'agentify' ),
 					'endpoints'   => array(
 						array( 'url' => '/wp-json/' . $namespace, 'type' => 'rest', 'auth' => 'none' ),
 					),
 				)
 			);
 		}
+	}
+
+	/**
+	 * Third-party namespaces detected on this site — the candidates the owner can
+	 * opt into publishing (the full detected set, not the published subset).
+	 *
+	 * @return string[]
+	 */
+	public static function detected() {
+		if ( ! self::is_available() ) {
+			return array();
+		}
+		$skip = (array) apply_filters( 'agentify_rest_skip_namespaces', self::SKIP );
+		$out  = array();
+		foreach ( (array) rest_get_server()->get_namespaces() as $namespace ) {
+			if ( self::is_third_party( $namespace, $skip ) ) {
+				$out[] = (string) $namespace;
+			}
+		}
+		sort( $out );
+		return $out;
+	}
+
+	/**
+	 * The owner's opted-in namespace allow-list, from settings.
+	 *
+	 * @return string[]
+	 */
+	private static function allowed() {
+		if ( ! class_exists( '\Agentify\Settings' ) ) {
+			return array();
+		}
+		return array_values( (array) ( new \Agentify\Settings() )->get( 'rest_namespaces', array() ) );
 	}
 
 	/* ---------------------------------------------------------------------- *
@@ -194,6 +232,17 @@ final class RestApi {
 	public static function slug( $namespace ) {
 		$slug = preg_replace( '/[^a-z0-9]+/', '-', strtolower( (string) $namespace ) );
 		return trim( (string) $slug, '-' );
+	}
+
+	/**
+	 * Whether a namespace is on the owner's publish allow-list.
+	 *
+	 * @param string   $namespace Namespace.
+	 * @param string[] $allowed   Allow-list (opted-in namespaces).
+	 * @return bool
+	 */
+	public static function is_allowed( $namespace, array $allowed ) {
+		return in_array( (string) $namespace, $allowed, true );
 	}
 
 	/**

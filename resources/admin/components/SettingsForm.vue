@@ -10,6 +10,7 @@ export default {
     postTypes: { type: Array, default: () => [] },
     knownTrainers: { type: Array, default: () => [] },
     endpoints: { type: Object, default: () => ({}) },
+    restNamespacesDetected: { type: Array, default: () => [] },
     saving: { type: Boolean, default: false },
   },
   emits: ['save'],
@@ -101,6 +102,10 @@ export default {
       const b = [...this.knownTrainers].sort();
       return a.length === b.length && a.every((v, i) => v === b[i]);
     },
+    publishedNsCount() {
+      const sel = Array.isArray(this.settings.rest_namespaces) ? this.settings.rest_namespaces : [];
+      return this.restNamespacesDetected.filter((ns) => sel.includes(ns)).length;
+    },
   },
   methods: {
     isUrl(value) {
@@ -125,6 +130,16 @@ export default {
     },
     selectAllTypes() {
       this.settings.post_types = this.postTypes.map((p) => p.slug);
+    },
+    isNsOn(ns) {
+      return Array.isArray(this.settings.rest_namespaces) && this.settings.rest_namespaces.includes(ns);
+    },
+    toggleNs(ns) {
+      if (!Array.isArray(this.settings.rest_namespaces)) this.settings.rest_namespaces = [];
+      const list = this.settings.rest_namespaces;
+      const i = list.indexOf(ns);
+      if (i === -1) list.push(ns);
+      else list.splice(i, 1);
     },
   },
 };
@@ -197,6 +212,35 @@ export default {
             </span>
           </label>
           <p v-if="!filteredPostTypes.length" class="ar-types-empty">No types match “{{ typeQuery }}”.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Discovery: REST APIs ------------------------------------------- -->
+    <section v-if="restNamespacesDetected.length" class="ar-card">
+      <h2 class="ar-card__title">Discovery — REST APIs</h2>
+      <p class="ar-card__lead">
+        REST APIs detected on your site. Publish the ones agents should use; internal or admin
+        APIs (analytics, telemetry, admin) are best left off. Nothing is published unless you tick it.
+      </p>
+      <div class="ar-types-bar">
+        <span class="ar-types-count">{{ publishedNsCount }} / {{ restNamespacesDetected.length }} published</span>
+      </div>
+      <div class="ar-types-scroll">
+        <div class="ar-types-grid">
+          <label
+            v-for="ns in restNamespacesDetected"
+            :key="ns"
+            class="ar-type"
+            :class="{ 'is-on': isNsOn(ns) }"
+          >
+            <input type="checkbox" :checked="isNsOn(ns)" @change="toggleNs(ns)" />
+            <span class="ar-type__check" aria-hidden="true"></span>
+            <span class="ar-type__body">
+              <span class="ar-type__label">{{ ns }}</span>
+              <span class="ar-type__meta"><code>/wp-json/{{ ns }}</code></span>
+            </span>
+          </label>
         </div>
       </div>
     </section>

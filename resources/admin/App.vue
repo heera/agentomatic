@@ -28,6 +28,7 @@ export default {
       entityTypes: this.boot.entityTypes || ['Person', 'Organization'],
       postTypes: this.boot.postTypes || [],
       knownTrainers: this.boot.knownTrainers || [],
+      restNamespacesDetected: this.boot.restNamespacesDetected || [],
       endpoints: this.boot.endpoints || {},
       version: this.boot.version || '',
       saving: false,
@@ -286,6 +287,7 @@ export default {
           :post-types="postTypes"
           :known-trainers="knownTrainers"
           :endpoints="endpoints"
+          :rest-namespaces-detected="restNamespacesDetected"
           :saving="saving"
           @save="save"
         />

@@ -53,6 +53,14 @@ final class RestApiAdapterTest extends TestCase {
 		);
 	}
 
+	public function test_is_allowed_opt_in() {
+		$allowed = array( 'wc/store/v1', 'klaviyo/v1' );
+		$this->assertTrue( RestApi::is_allowed( 'wc/store/v1', $allowed ) );
+		$this->assertFalse( RestApi::is_allowed( 'wc-telemetry', $allowed ) );
+		// Default (nothing opted in) publishes nothing third-party.
+		$this->assertFalse( RestApi::is_allowed( 'wc/store/v1', array() ) );
+	}
+
 	public function test_slug() {
 		$this->assertSame( 'acme-v1', RestApi::slug( 'acme/v1' ) );
 		$this->assertSame( 'wc-store-v1', RestApi::slug( 'wc/store/v1' ) );

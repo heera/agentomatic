@@ -31,6 +31,7 @@ final class Settings {
 			'enable_activity'  => true,
 			'llms_full_posts'  => 50,
 			'post_types'       => Content::available(),
+			'rest_namespaces'  => array(), // Owner-curated REST namespaces to publish in discovery (opt-in; empty = none).
 			'identity'         => array(
 				'entity_type'   => 'Person', // Person | Organization.
 				'name'          => get_bloginfo( 'name' ),
@@ -186,6 +187,22 @@ final class Settings {
 		if ( empty( $clean['post_types'] ) ) {
 			$clean['post_types'] = $available; // Never store an empty set — that would hide all content.
 		}
+
+		// Owner-curated REST namespaces to publish (e.g. "wc/store/v1"). Keep only
+		// namespace-safe characters; nothing is published unless explicitly listed.
+		$ns_in                    = isset( $input['rest_namespaces'] ) && is_array( $input['rest_namespaces'] ) ? $input['rest_namespaces'] : array();
+		$clean['rest_namespaces'] = array_values(
+			array_unique(
+				array_filter(
+					array_map(
+						static function ( $ns ) {
+							return preg_replace( '#[^a-z0-9/_-]#', '', strtolower( (string) $ns ) );
+						},
+						$ns_in
+					)
+				)
+			)
+		);
 
 		// Content-Signal is a fixed vocabulary (search / ai-input / ai-train),
 		// stored as booleans so no free-text can reach the public robots.txt.
