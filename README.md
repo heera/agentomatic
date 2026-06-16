@@ -119,4 +119,4 @@ distributed `.zip` (the `.org` SVN tag), not the repo.
 
 ## Requirements
 
-WordPress 6.3+, PHP 7.4+.
+WordPress 6.9+, PHP 7.4+.
