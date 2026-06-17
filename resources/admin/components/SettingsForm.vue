@@ -6,6 +6,7 @@ export default {
   components: { TagInput },
   props: {
     settings: { type: Object, required: true },
+    advanced: { type: Boolean, default: false },
     entityTypes: { type: Array, default: () => ['Person', 'Organization'] },
     postTypes: { type: Array, default: () => [] },
     knownTrainers: { type: Array, default: () => [] },
@@ -87,14 +88,17 @@ export default {
       }
     },
     features() {
+      // `label` is the precise/technical name (Advanced view); `basic` is the
+      // plain-language name for everyone else. The real filename stays in the hint
+      // so it's always discoverable.
       return [
-        { key: 'enable_llms_txt', label: '/llms.txt index', hint: 'A link map of your pages, topics and recent posts.' },
-        { key: 'enable_llms_full', label: '/llms-full.txt full text', hint: 'Every page and recent post in one ingestible document.' },
-        { key: 'enable_markdown', label: 'Markdown delivery', hint: 'Serve any page as markdown via .md URLs or Accept negotiation.' },
-        { key: 'enable_robots', label: 'robots.txt rules', hint: 'Content-signal intent plus a model-training crawler blocklist.' },
-        { key: 'enable_schema', label: 'JSON-LD schema', hint: 'WebSite, entity and article structured data (defers to SEO plugins).' },
-        { key: 'enable_activity', label: 'Agent activity log', hint: 'Record which AI agents request your discovery & llms endpoints (local-only, no IP).' },
-        { key: 'enable_sitemap', label: 'XML sitemap (fallback)', hint: 'Generate a sitemap only when WordPress core and SEO-plugin sitemaps are both absent — never duplicates an existing one.' },
+        { key: 'enable_llms_txt', label: '/llms.txt index', basic: 'AI page guide', hint: 'A plain map of your pages, topics and recent posts for assistants. (file: llms.txt)' },
+        { key: 'enable_llms_full', label: '/llms-full.txt full text', basic: 'Full text for AI', hint: 'Bundles your pages and recent posts into one document an assistant can read in a single pass. (file: llms-full.txt)' },
+        { key: 'enable_markdown', label: 'Markdown delivery', basic: 'Plain-text versions', hint: 'Lets assistants fetch a clean text version of any page — add .md to its URL.' },
+        { key: 'enable_robots', label: 'robots.txt rules', basic: 'Crawler rules', hint: 'States your preferences to crawlers and blocks known AI-training bots by name. (file: robots.txt)' },
+        { key: 'enable_schema', label: 'JSON-LD schema', basic: 'Rich data for search', hint: 'Adds structured data search engines and assistants understand. Leave off if your SEO plugin already does this.' },
+        { key: 'enable_activity', label: 'Agent activity log', basic: 'Visit log', hint: 'Records which AI assistants fetch your AI files. Local-only, no IP addresses.' },
+        { key: 'enable_sitemap', label: 'XML sitemap (fallback)', basic: 'Sitemap (backup)', hint: 'Adds a sitemap only when WordPress core and your SEO plugin don’t already provide one — never duplicates.' },
       ];
     },
     resetPreview() {
@@ -119,9 +123,9 @@ export default {
     },
     signalRows() {
       return [
-        { key: 'search', label: 'Search engines', hint: 'Allow indexing for traditional search.' },
-        { key: 'ai_input', label: 'AI input (RAG & citation)', hint: 'Allow agents to read, ground and cite your content.' },
-        { key: 'ai_train', label: 'AI training', hint: 'Allow your content to be used as model-training data.' },
+        { key: 'search', label: 'Search engines', basic: 'Show in search engines', hint: 'Let Google and other search engines find your pages.' },
+        { key: 'ai_input', label: 'AI input (RAG & citation)', basic: 'Let AI read & cite you', hint: 'Allow assistants to read your content and cite it in their answers.' },
+        { key: 'ai_train', label: 'AI training', basic: 'Allow AI training', hint: 'Allow your content to be used to train AI models.' },
       ];
     },
     signalPreview() {
@@ -312,8 +316,8 @@ export default {
       </div>
     </section>
 
-    <!-- Security.txt --------------------------------------------------- -->
-    <section id="ar-sec-security" class="ar-card">
+    <!-- Security.txt (advanced) ---------------------------------------- -->
+    <section v-if="advanced" id="ar-sec-security" class="ar-card">
       <h2 class="ar-card__title">Security.txt</h2>
       <p class="ar-card__lead">
         A machine- and human-readable security contact at
@@ -398,7 +402,7 @@ export default {
         <input v-model="settings[f.key]" type="checkbox" />
         <span class="ar-toggle__track" aria-hidden="true"></span>
         <span class="ar-toggle__text">
-          <strong>{{ f.label }}</strong>
+          <strong>{{ advanced ? f.label : f.basic }}</strong>
           <small>{{ f.hint }}</small>
         </span>
       </label>
@@ -419,20 +423,24 @@ export default {
     <!-- Crawler policy ------------------------------------------------- -->
     <section class="ar-card">
       <h2 class="ar-card__title">Crawler policy</h2>
-      <p class="ar-card__lead">
+      <p v-if="advanced" class="ar-card__lead">
         Two layers of control: a <strong>Content-Signal</strong> that declares how your content may be
         used (compliant bots honor it), and a hard <code>Disallow</code> for AI-training crawlers that
         ignore it. Search and read/cite bots stay allowed.
       </p>
+      <p v-else class="ar-card__lead">
+        Decide what AI assistants may do with your content. Search and citation stay on by default;
+        you can refuse training.
+      </p>
 
       <div class="ar-field">
-        <label>Usage declaration <span class="ar-field__tag">Content-Signal</span></label>
+        <label>Usage declaration <span v-if="advanced" class="ar-field__tag">Content-Signal</span></label>
         <div class="ar-signals">
           <label v-for="row in signalRows" :key="row.key" class="ar-toggle">
             <input v-model="signal[row.key]" type="checkbox" />
             <span class="ar-toggle__track" aria-hidden="true"></span>
             <span class="ar-toggle__text">
-              <strong>{{ row.label }}</strong>
+              <strong>{{ advanced ? row.label : row.basic }}</strong>
               <small>{{ row.hint }}</small>
             </span>
             <span class="ar-signal-state" :class="signal[row.key] ? 'is-allow' : 'is-block'">
@@ -440,7 +448,7 @@ export default {
             </span>
           </label>
         </div>
-        <small class="ar-field__hint">Emitted in robots.txt as <code>{{ signalPreview }}</code></small>
+        <small v-if="advanced" class="ar-field__hint">Emitted in robots.txt as <code>{{ signalPreview }}</code></small>
       </div>
 
       <div class="ar-field">
@@ -477,9 +485,13 @@ export default {
     <!-- Content types -------------------------------------------------- -->
     <section v-if="postTypes.length" class="ar-card">
       <h2 class="ar-card__title">Content types</h2>
-      <p class="ar-card__lead">
+      <p v-if="advanced" class="ar-card__lead">
         Which content agents see — in llms.txt, the full-text edition, markdown delivery and schema.
         Enable products or custom post types to cover e-commerce and beyond.
+      </p>
+      <p v-else class="ar-card__lead">
+        Pick which kinds of content AI assistants can read. Posts and pages are usually enough;
+        add products or other types if you want them included.
       </p>
       <div class="ar-types-bar">
         <input
@@ -509,7 +521,7 @@ export default {
               <span class="ar-type__label">{{ pt.label }}</span>
               <span class="ar-type__meta">
                 <span v-if="pt.source" class="ar-type__src">{{ pt.source }}</span>
-                <code>{{ pt.slug }}</code>
+                <code v-if="advanced">{{ pt.slug }}</code>
               </span>
             </span>
           </label>
@@ -524,7 +536,7 @@ export default {
     </section>
 
     <!-- Discovery: REST APIs (advanced, opt-in) ------------------------ -->
-    <section v-if="restNamespacesDetected.length" class="ar-card">
+    <section v-if="advanced && restNamespacesDetected.length" class="ar-card">
       <h2 class="ar-card__title">Discovery — REST APIs</h2>
       <p class="ar-card__lead">
         REST APIs detected on your site. Publish the ones agents should use; internal or admin
@@ -567,8 +579,8 @@ export default {
       </p>
     </section>
 
-    <!-- Provider integrations ------------------------------------------ -->
-    <section v-if="providerResources.length" class="ar-card">
+    <!-- Provider integrations (advanced) ------------------------------- -->
+    <section v-if="advanced && providerResources.length" class="ar-card">
       <h2 class="ar-card__title">Provider integrations</h2>
       <p class="ar-card__lead">
         Resources that installed plugins declared for agents. Each is <strong>published by default</strong> —

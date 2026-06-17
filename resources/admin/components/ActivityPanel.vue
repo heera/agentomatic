@@ -3,6 +3,7 @@ export default {
   name: 'ActivityPanel',
   props: {
     data: { type: Object, default: () => ({}) },
+    advanced: { type: Boolean, default: false },
     summary: { type: Object, default: null },
     loaded: { type: Boolean, default: false },
     refreshing: { type: Boolean, default: false },
@@ -111,21 +112,23 @@ export default {
         <strong class="ar-dash-tile__v" :data-tone="summary.tone">{{ summary.readiness.pass }}/{{ summary.readiness.total }}</strong>
         <span class="ar-dash-tile__sub">{{ summary.readiness.pct }}% pass</span>
       </button>
-      <button type="button" class="ar-dash-tile" @click="$emit('navigate', { tab: 'discovery', anchor: 'ar-wd-providers' })">
-        <span class="ar-dash-tile__k">Providers</span>
-        <strong class="ar-dash-tile__v">{{ summary.providers }}</strong>
-        <span class="ar-dash-tile__sub">sources describing your site</span>
-      </button>
-      <button type="button" class="ar-dash-tile" @click="$emit('navigate', { tab: 'discovery', anchor: 'ar-wd-providers' })">
-        <span class="ar-dash-tile__k">Capabilities</span>
-        <strong class="ar-dash-tile__v">{{ summary.capabilities }}</strong>
-        <span class="ar-dash-tile__sub">what agents can do or read</span>
-      </button>
-      <button type="button" class="ar-dash-tile" @click="$emit('navigate', { tab: 'discovery', anchor: 'ar-wd-tools' })">
-        <span class="ar-dash-tile__k">Tools</span>
-        <strong class="ar-dash-tile__v">{{ summary.tools }}</strong>
-        <span class="ar-dash-tile__sub">actions agents can run</span>
-      </button>
+      <template v-if="advanced">
+        <button type="button" class="ar-dash-tile" @click="$emit('navigate', { tab: 'discovery', anchor: 'ar-wd-providers' })">
+          <span class="ar-dash-tile__k">Providers</span>
+          <strong class="ar-dash-tile__v">{{ summary.providers }}</strong>
+          <span class="ar-dash-tile__sub">sources describing your site</span>
+        </button>
+        <button type="button" class="ar-dash-tile" @click="$emit('navigate', { tab: 'discovery', anchor: 'ar-wd-providers' })">
+          <span class="ar-dash-tile__k">Capabilities</span>
+          <strong class="ar-dash-tile__v">{{ summary.capabilities }}</strong>
+          <span class="ar-dash-tile__sub">what agents can do or read</span>
+        </button>
+        <button type="button" class="ar-dash-tile" @click="$emit('navigate', { tab: 'discovery', anchor: 'ar-wd-tools' })">
+          <span class="ar-dash-tile__k">Tools</span>
+          <strong class="ar-dash-tile__v">{{ summary.tools }}</strong>
+          <span class="ar-dash-tile__sub">actions agents can run</span>
+        </button>
+      </template>
     </div>
 
     <!-- First load in flight: show a skeleton, not the empty state. -->
@@ -233,8 +236,9 @@ export default {
             <li v-for="(r, i) in recentGrouped" :key="i">
               <span class="ar-act-feed__agent">{{ r.agent }}</span>
               <code class="ar-act-feed__ep">{{ r.endpoint }}</code>
-              <code v-if="r.ua" class="ar-act-feed__ua" :title="r.ua">{{ r.ua }}</code>
-              <span v-else class="ar-act-feed__ua is-empty">no User-Agent</span>
+              <code v-if="advanced && r.ua" class="ar-act-feed__ua" :title="r.ua">{{ r.ua }}</code>
+              <span v-else-if="advanced" class="ar-act-feed__ua is-empty">no User-Agent</span>
+              <span v-else class="ar-act-feed__ua" aria-hidden="true"></span>
               <span class="ar-act-feed__count" :title="r.count > 1 ? `${r.count} hits` : null">{{ r.count > 1 ? '×' + r.count : '' }}</span>
               <span class="ar-act-feed__at">{{ ago(r.at) }}</span>
             </li>

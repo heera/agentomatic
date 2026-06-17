@@ -387,6 +387,16 @@
 .ar-toggle__text strong { font-size: 14px; font-weight: 600; }
 .ar-toggle__text small { color: var(--ar-ink-soft); font-size: 12px; }
 
+/* Advanced-view switch in the header — reuses the .ar-toggle__track visual. */
+.ar__adv { align-self: center; flex: 0 0 auto; display: inline-flex; align-items: center; gap: 9px; cursor: pointer; }
+.ar__adv-label { font-family: var(--ar-mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ar-ink-faint); transition: color 0.15s; }
+.ar__adv:hover .ar__adv-label { color: var(--ar-ink-soft); }
+.ar__adv-input { position: absolute; opacity: 0; width: 0; height: 0; }
+.ar__adv-input:checked + .ar-toggle__track { background: var(--ar-accent); }
+.ar__adv-input:checked + .ar-toggle__track::after { transform: translateX(18px); }
+.ar__adv-input:focus-visible + .ar-toggle__track { outline: 2px solid var(--ar-accent); outline-offset: 2px; }
+@container (max-width: 600px) { .ar__adv-label { display: none; } }
+
 /* Provider-integration row: a metadata line (type · plugin · capabilities). */
 .ar-prov-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 2px; }
 .ar-prov-meta > * { position: relative; }
