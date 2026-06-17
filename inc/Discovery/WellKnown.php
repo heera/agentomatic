@@ -65,7 +65,7 @@ final class WellKnown {
 		// canonical redirect resolves it to the homepage (a 200, not a 404). So
 		// security.txt etc. are intentionally absent — a provider that serves one
 		// adds its name here via the `agentify_well_known_routed` filter.
-		$names = array( 'discovery.json', 'agent-card.json', 'agent.json', 'mcp.json' );
+		$names = array( 'discovery.json', 'agent-card.json', 'agent.json', 'mcp.json', 'api-catalog' );
 
 		/**
 		 * Filter the /.well-known names routed to WordPress by an explicit rule.
@@ -141,6 +141,10 @@ final class WellKnown {
 				break;
 			case 'mcp.json':
 				$this->send( $this->envelope->mcp_json(), 'application/json', 'mcp.json' );
+				break;
+			case 'api-catalog':
+				// RFC 9727 API catalog, as an RFC 9264 link set.
+				$this->send( $this->envelope->api_catalog_json(), 'application/linkset+json', 'api-catalog' );
 				break;
 		}
 
