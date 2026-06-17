@@ -42,18 +42,8 @@ Deeper coverage (a WooCommerce `Product` mapper, page-builder content) is an
 add-on that hooks these seams:
 
 - `agentify_post_types` — add/remove agent-visible post types
-- `agentify_schema_type_map` — post_type → schema @type (light)
-- `agentify_schema_for_post` — return a full node, e.g. `Product` with offers (heavy)
+- `agentify_schema_for_post` — return a full node, e.g. `Product` with offers
 - `agentify_markdown_source` — supply rendered HTML for page-builder content
-
-### Other extension seams
-
-- `agentify_booted` action (passes the `Plugin` instance)
-- `agentify_settings` / `agentify_default_settings` / `agentify_sanitize_settings`
-- `agentify_schema_graph`, `agentify_defer_schema`
-- `agentify_readiness_checks`
-- `agentify_topic_exclude`
-- `agentify_post_type_source` — source label for a post type in the admin
 
 ## For developers — make your plugin discoverable
 
@@ -63,7 +53,7 @@ can register itself with **one action and no dependency** — if Agentify is not
 installed, the hook never fires, so the code is inert:
 
 ```php
-add_action( 'agentify_discovery_register', function ( $registry ) {
+add_action( 'wpdiscovery_register', function ( $registry ) {
     $registry->register( array(
         'id'           => 'acme-bookings',
         'title'        => 'Acme Bookings',
@@ -95,16 +85,68 @@ Capabilities describe **intent**; the concrete `/wp-json/...` paths live only in
 `endpoints`/`tools`. Invalid entries are rejected and surfaced (with the reason)
 in **Discovery Hub → Validation**.
 
-Other discovery seams:
+`$registry->add_well_known( [...] )` serves a `/.well-known/<name>` doc
+(callback | redirect | file). See **`examples/integrate-your-plugin.php`** for the
+full copy-paste reference, and the **WP_Discovery Protocol** spec for the standard.
 
-- `$registry->add_well_known( [...] )` — serve a `/.well-known/<name>` doc (callback | redirect | file)
-- `agentify_discovery_envelope` — filter the assembled discovery document
-- `agentify_discovery_mcp` — filter the advertised MCP descriptor
-- `agentify_woocommerce_capabilities`, `agentify_fluent_cart_capabilities`,
-  `agentify_discoverable_ability` — tune the built-in adapters
+## Hooks & filters
 
-See **`examples/integrate-your-plugin.php`** for a full, copy-paste reference, and
-the **WP_Discovery Protocol** spec for the standard itself.
+The dev-facing subset (the plugin fires ~40 in all; every one is optional).
+
+**Identity**
+- `agentify_entity_types` `(array $types)` — selectable schema.org entity types; add subtypes (e.g. `Restaurant`).
+
+**Content, llms.txt & markdown**
+- `agentify_post_types` `(array $types, array $available)` — which post types are agent-visible.
+- `agentify_topic_exclude` `(array $slugs)` — topic/category slugs to omit from llms.txt (default `['uncategorized']`).
+- `agentify_markdown_source` `(?string $html, WP_Post $post)` — supply rendered HTML for page-builder content.
+- `agentify_defer_schema` `(bool $active)` — force JSON-LD to stand down for (or override) an SEO plugin.
+
+**Discovery & `.well-known`**
+- `agentify_discovery_envelope` `(array $envelope, $registry)` — the assembled `discovery.json`.
+- `agentify_discovery_mcp` `(array $mcp, array $resources)` — the advertised MCP descriptor.
+- `agentify_agent_skills` `(array $skills, array $resources)` — the Agent Skills index.
+- `agentify_rest_namespaces` `(array $allowed)` — REST namespaces to publish.
+- `agentify_discoverable_ability` `(bool $ok, string $name, $ability)` — include/exclude a WP ability.
+- `agentify_discovery_schema_url` `(string $url)` — the `$schema` value; return `''` to omit it.
+- `agentify_well_known_nested` `(array $names)` — extra exact-match nested `/.well-known/…` paths.
+
+**Signing / Web Bot Auth**
+- `agentify_signed_surfaces` `(array $docs)` — which discovery docs are signed (default the four core docs).
+- `agentify_signing_secret_key` `(string '')` — supply the Ed25519 secret key from a constant/env instead of the DB.
+
+**Crawlers & activity log**
+- `agentify_known_trainers` `(array $uas)` — AI-trainer user-agents offered for blocking.
+- `agentify_agent_map` `(array $map)` — user-agent → friendly label for the activity log.
+- `agentify_activity_retention_days` `(int $days)` — how long agent hits are kept.
+
+**Schema (JSON-LD)**
+- `agentify_schema_for_post` `(array $node, WP_Post $post)` — replace a post's node (e.g. a `Product`).
+- `agentify_schema_graph` `(array $graph)` — the whole `@graph`.
+
+**Security.txt**
+- `agentify_security_txt` `(string $body)` — the `/.well-known/security.txt` body.
+
+**Cache / CDN**
+- `agentify_cache_flushed` *(action)* — fires after Agentify clears its caches; hook it to purge your CDN / page cache.
+
+**Settings & lifecycle**
+- `agentify_default_settings` / `agentify_settings` — the default and live settings arrays.
+- `agentify_readiness_checks` `(array $checks, Settings $settings)` — add or adjust readiness checks.
+- `agentify_booted` *(action)* `($plugin)` — after the plugin boots.
+
+```php
+// Add schema.org entity types (Person, Organization, LocalBusiness, Store ship by default).
+add_filter( 'agentify_entity_types', function ( $types ) {
+    $types[] = 'Restaurant';
+    return $types;
+} );
+
+// Purge your CDN whenever Agentify regenerates its documents.
+add_action( 'agentify_cache_flushed', function () {
+    my_cdn_purge( array( '/llms.txt', '/llms-full.txt', '/.well-known/discovery.json' ) );
+} );
+```
 
 ## Development
 

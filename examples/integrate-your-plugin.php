@@ -184,3 +184,28 @@ add_action(
 		);
 	}
 );
+
+/* -------------------------------------------------------------------------- *
+ *  6. Customization filters (site owners / companion plugins) — these tune
+ *     Agentify's own output, independent of registering a resource above.
+ * -------------------------------------------------------------------------- */
+
+// Offer extra schema.org entity types in Settings -> Identity.
+// (Person, Organization, LocalBusiness and Store ship by default.)
+add_filter(
+	'agentify_entity_types',
+	function ( $types ) {
+		$types[] = 'Restaurant';
+		$types[] = 'EducationalOrganization';
+		return $types;
+	}
+);
+
+// Purge your CDN / page cache whenever Agentify regenerates its documents
+// (llms.txt, discovery.json, ...). Fires once per flush, debounced.
+add_action(
+	'agentify_cache_flushed',
+	function () {
+		// my_cdn_purge( array( '/llms.txt', '/llms-full.txt', '/.well-known/discovery.json' ) );
+	}
+);
