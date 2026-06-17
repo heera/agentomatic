@@ -117,6 +117,28 @@
   -moz-text-align-last: justify;
 }
 
+/* Brand / nav separator — a small right-pointing arrow whose tip is a gold gem:
+   two angled bars meet at a framed gold node that points toward the menu. The gold
+   echoes the version line + logo crossbar, the ring echoes the logo's framed mark.
+   Sets the masthead apart from the menu; no motion, no layout shift. */
+.ar__sep {
+  flex: 0 0 auto;
+  align-self: center;
+  display: inline-flex;
+  /* The bar uses a uniform 26px gap; pull the arrow in toward the brand so it sits
+     closer to the logo/wordmark, leaving the arrow → menu spacing untouched. */
+  margin-left: -10px;
+}
+.ar__sep svg { display: block; }
+.ar__sep-chev {
+  stroke: var(--ar-line-strong);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.ar__sep-ring { stroke: rgba(173, 123, 24, 0.45); stroke-width: 1; }
+.ar__sep-node { fill: var(--ar-warn); filter: drop-shadow(0 0 2px rgba(173, 123, 24, 0.45)); }
+
 /* Tabs — inline in the bar, active item underlined at the bar's base. The strip
    takes the space left of the brand and scrolls horizontally when it can't fit,
    so no tab is ever clipped on narrow screens. */

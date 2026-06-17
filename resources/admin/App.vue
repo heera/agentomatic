@@ -423,6 +423,14 @@ export default {
         </span>
       </button>
 
+      <span class="ar__sep" aria-hidden="true">
+        <svg viewBox="0 0 14 44" width="14" height="44" fill="none">
+          <path class="ar__sep-chev" d="M3 11 L9 22 L3 33" />
+          <circle class="ar__sep-ring" cx="9" cy="22" r="4.2" />
+          <circle class="ar__sep-node" cx="9" cy="22" r="2.4" />
+        </svg>
+      </span>
+
       <nav class="ar__tabs" role="tablist">
         <button
           v-for="t in tabs"
