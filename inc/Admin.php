@@ -159,7 +159,7 @@ final class Admin {
 			'readiness'   => ( new Readiness( $this->settings ) )->report(),
 			'discovery'   => Discovery\Hub::data( $this->settings, Discovery\Registry::instance() ),
 			'restNamespacesDetected' => Discovery\Adapters\RestApi::detected(),
-			'entityTypes'   => array( 'Person', 'Organization' ),
+			'entityTypes'   => $this->settings->entity_types(),
 			'postTypes'     => $this->available_post_types(),
 			'knownTrainers' => Settings::known_trainers(),
 			'endpoints'   => array(

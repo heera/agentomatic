@@ -6,7 +6,7 @@ export default {
   components: { TagInput },
   props: {
     settings: { type: Object, required: true },
-    entityTypes: { type: Array, default: () => ['Person', 'Organization'] },
+    entityTypes: { type: Array, default: () => ['Person', 'Organization', 'LocalBusiness', 'Store'] },
     postTypes: { type: Array, default: () => [] },
     knownTrainers: { type: Array, default: () => [] },
     endpoints: { type: Object, default: () => ({}) },
@@ -146,7 +146,7 @@ export default {
       return `Content-Signal: search=${yn(this.signal.search)}, ai-input=${yn(this.signal.ai_input)}, ai-train=${yn(this.signal.ai_train)}`;
     },
     isOrg() {
-      return this.identity.entity_type === 'Organization';
+      return this.identity.entity_type !== 'Person';
     },
     namePlaceholder() {
       return this.isOrg ? 'Acme Inc.' : 'Jane Doe';
@@ -268,7 +268,7 @@ export default {
         <div class="ar-field">
           <label for="ar-type">Entity type</label>
           <select id="ar-type" v-model="identity.entity_type" class="ar-input">
-            <option v-for="t in entityTypes" :key="t" :value="t">{{ t }}</option>
+            <option v-for="t in entityTypes" :key="t" :value="t">{{ t.replace(/([a-z])([A-Z])/g, '$1 $2') }}</option>
           </select>
         </div>
         <div class="ar-field">

@@ -31,7 +31,7 @@ export default {
   },
   computed: {
     isOrg() {
-      return this.entityType === 'Organization';
+      return this.entityType !== 'Person';
     },
     namePlaceholder() {
       return this.isOrg ? 'Acme Inc.' : 'Jane Doe';
@@ -134,7 +134,8 @@ export default {
                 <div class="ar-field">
                   <label for="ar-wiz-type">This site represents</label>
                   <select id="ar-wiz-type" v-model="entityType" class="ar-input">
-                    <option v-for="t in entityTypes" :key="t" :value="t">{{ t === 'Person' ? 'A person' : 'An organization' }}</option>
+                    <option value="Person">A person</option>
+                    <option value="Organization">An organization</option>
                   </select>
                 </div>
 

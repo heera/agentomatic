@@ -134,12 +134,16 @@ final class Schema {
 	}
 
 	/**
-	 * The site entity — Person or Organization, from identity settings.
+	 * The site entity — Person, or an Organization (sub)type, from identity settings.
 	 *
 	 * @return array
 	 */
 	private function entity_node() {
-		$type    = 'Organization' === $this->settings->identity( 'entity_type' ) ? 'Organization' : 'Person';
+		// 'Person' is the human case; any other configured value is a schema.org
+		// Organization (sub)type — Organization, LocalBusiness, Store, … — emitted
+		// as-is (validated against entity_types() on save).
+		$stored  = (string) $this->settings->identity( 'entity_type', 'Person' );
+		$type    = '' !== $stored ? $stored : 'Person';
 		$name    = (string) $this->settings->identity( 'name', get_bloginfo( 'name' ) );
 		$about   = (string) $this->settings->identity( 'about' );
 		$same_as = array_values( array_filter( (array) $this->settings->identity( 'same_as', array() ) ) );

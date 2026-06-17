@@ -246,7 +246,7 @@ final class Envelope {
 			$contacts[] = array( 'type' => 'email', 'value' => 'mailto:' . $email );
 		}
 		return array(
-			'type'         => 'Organization' === $type ? 'organization' : 'person',
+			'type'         => 'Person' === $type ? 'person' : 'organization',
 			'name'         => $this->settings->identity( 'name', get_bloginfo( 'name' ) ),
 			'role'         => (string) $this->settings->identity( 'role', '' ),
 			'about'        => (string) $this->settings->identity( 'about', '' ),

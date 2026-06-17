@@ -39,7 +39,7 @@ final class Settings {
 			'oauth_auth_server' => '',     // Optional OAuth authorization-server URL; when set, serve RFC 9728 protected-resource metadata. Never fabricate RFC 8414.
 			'suppressed_resources' => array(), // Owner opt-OUT: ids of provider-registered Resources to hide from all output. Declared Resources default to published (spec §04), so empty = publish everything a provider declared.
 			'identity'         => array(
-				'entity_type'   => 'Person', // Person | Organization.
+				'entity_type'   => 'Person', // Person, or an Organization subtype (Organization, LocalBusiness, Store, …) — see entity_types().
 				'name'          => get_bloginfo( 'name' ),
 				'role'          => '',
 				'about'         => '',
@@ -220,6 +220,22 @@ final class Settings {
 	}
 
 	/**
+	 * The selectable schema.org entity types (filterable). 'Person' is the human
+	 * case; the rest are Organization subtypes (a shop is a Store → LocalBusiness →
+	 * Organization). Add-ons/devs can extend via the `agentify_entity_types` filter
+	 * (e.g. add 'Restaurant'). 'Person' is always guaranteed present so the
+	 * sanitiser's fallback stays valid.
+	 *
+	 * @return string[]
+	 */
+	public function entity_types() {
+		$types = array( 'Person', 'Organization', 'LocalBusiness', 'Store' );
+		$types = (array) apply_filters( 'agentify_entity_types', $types );
+		$types = array_values( array_unique( array_filter( array_map( 'strval', $types ) ) ) );
+		return in_array( 'Person', $types, true ) ? $types : array_merge( array( 'Person' ), $types );
+	}
+
+	/**
 	 * Sanitise a raw settings array against the schema.
 	 *
 	 * @param array $input Raw input.
@@ -298,7 +314,7 @@ final class Settings {
 		$identity_in          = isset( $input['identity'] ) && is_array( $input['identity'] ) ? $input['identity'] : array();
 		$type                 = isset( $identity_in['entity_type'] ) ? (string) $identity_in['entity_type'] : 'Person';
 		$clean['identity']    = array(
-			'entity_type' => in_array( $type, array( 'Person', 'Organization' ), true ) ? $type : 'Person',
+			'entity_type' => in_array( $type, $this->entity_types(), true ) ? $type : 'Person',
 			'name'        => isset( $identity_in['name'] ) ? sanitize_text_field( (string) $identity_in['name'] ) : '',
 			'role'        => isset( $identity_in['role'] ) ? sanitize_text_field( (string) $identity_in['role'] ) : '',
 			'about'         => isset( $identity_in['about'] ) ? sanitize_textarea_field( (string) $identity_in['about'] ) : '',
