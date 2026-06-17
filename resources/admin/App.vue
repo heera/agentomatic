@@ -562,10 +562,16 @@ export default {
           </ul>
         </div>
 
-        <div v-if="tab === 'settings'" class="ar-rail-save" :class="`is-${autoStatus}`">
+        <div
+          v-if="tab === 'settings' && autoStatus !== 'idle'"
+          class="ar-rail-save"
+          :class="`is-${autoStatus}`"
+          role="status"
+          aria-live="polite"
+        >
           <span class="ar-rail-save__dot" aria-hidden="true"></span>
           <span class="ar-rail-save__label">
-            {{ autoStatus === 'saving' ? 'Saving…' : autoStatus === 'error' ? 'Save failed' : autoStatus === 'saved' ? 'Saved' : 'Auto-save on' }}
+            {{ autoStatus === 'saving' ? 'Saving…' : autoStatus === 'error' ? 'Save failed' : 'Saved' }}
           </span>
         </div>
       </aside>
