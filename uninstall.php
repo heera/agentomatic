@@ -9,6 +9,7 @@ defined( 'WP_UNINSTALL_PLUGIN' ) || exit;
 
 delete_option( 'agentify_settings' );
 delete_option( 'agentify_onboarded' );
+delete_option( 'agentify_signing_keys' );
 delete_transient( 'agentify_llms_txt' );
 delete_transient( 'agentify_llms_full' );
 delete_transient( 'agentify_discovery' );

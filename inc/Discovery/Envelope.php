@@ -317,6 +317,12 @@ final class Envelope {
 			$index[ $name ] = array( 'name' => $name, 'url' => home_url( '/.well-known/' . $name ), 'source' => 'generated' );
 		}
 
+		// The signing key directory is listed only when signing is actually on.
+		$signer = new Signer( $this->settings );
+		if ( $signer->enabled() ) {
+			$index[ Signer::DIRECTORY ] = array( 'name' => Signer::DIRECTORY, 'url' => home_url( '/.well-known/' . Signer::DIRECTORY ), 'source' => 'generated' );
+		}
+
 		// 2. Plugin-managed providers.
 		foreach ( $this->registry->well_known() as $name => $def ) {
 			$index[ $name ] = array( 'name' => $name, 'url' => home_url( '/.well-known/' . $name ), 'source' => 'managed' );
@@ -364,6 +370,7 @@ final class Envelope {
 			'mcp/server-card.json'       => 'MCP Server Card',
 			'agent-skills/index.json'    => 'Agent Skills',
 			'api-catalog'                => 'RFC 9727',
+			'http-message-signatures-directory' => 'Web Bot Auth (HTTP Message Signatures)',
 			// Security.
 			'security.txt'               => 'RFC 9116',
 			'mta-sts.txt'                => 'RFC 8461',
@@ -751,11 +758,17 @@ final class Envelope {
 
 	/** @return array Minimal trust surface (v2: jwks_uri, signed cards, DID). */
 	private function trust() {
-		// Always state authenticity explicitly. Wire-format 1.0 documents are NOT
-		// cryptographically signed, so a consumer MUST NOT assume this document is
-		// verified — say so rather than leaving an empty {} that implies nothing.
-		// (Signing — jwks_uri / signed cards / DID — is the deferred v2 surface.)
-		$trust = array( 'signed' => false );
+		// State authenticity explicitly. By default a 1.0 document is NOT signed, so
+		// say so rather than leave an empty {}. When response signing is enabled
+		// (Web Bot Auth), advertise that the discovery docs are signed and where the
+		// verification keys live.
+		$trust  = array( 'signed' => false );
+		$signer = new Signer( $this->settings );
+		if ( $signer->enabled() ) {
+			$trust['signed']        = true;
+			$trust['signature_alg'] = 'ed25519';
+			$trust['jwks_uri']      = $signer->directory_url();
+		}
 		if ( file_exists( ABSPATH . '.well-known/security.txt' ) || isset( $this->registry->well_known()['security.txt'] ) ) {
 			$trust['security_txt'] = home_url( '/.well-known/security.txt' );
 		}

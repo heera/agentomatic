@@ -31,6 +31,7 @@ final class Settings {
 			'enable_activity'  => true,
 			'enable_sitemap'   => true, // Gap-only fallback: stands down when core/SEO provides one, so it's safe on by default.
 			'enable_security_txt' => false, // Opt-in: generate /.well-known/security.txt only when asked AND no file/other plugin already provides one.
+			'enable_signing'   => false,    // Opt-in: RFC 9421 signatures on the discovery docs + a published Web Bot Auth key directory.
 			'llms_full_posts'  => 50,
 			'llms_full_max_kb' => 1024, // Hard byte budget for /llms-full.txt (KB): generation stops cleanly here and links the index. Keeps the file ingestible and under common 1 MB object-cache row limits.
 			'post_types'       => self::default_post_types(),
@@ -227,7 +228,7 @@ final class Settings {
 		$defaults = $this->defaults();
 		$clean    = array();
 
-		foreach ( array( 'enable_llms_txt', 'enable_llms_full', 'enable_markdown', 'enable_robots', 'enable_schema', 'enable_activity', 'enable_sitemap', 'enable_security_txt' ) as $flag ) {
+		foreach ( array( 'enable_llms_txt', 'enable_llms_full', 'enable_markdown', 'enable_robots', 'enable_schema', 'enable_activity', 'enable_sitemap', 'enable_security_txt', 'enable_signing' ) as $flag ) {
 			$clean[ $flag ] = ! empty( $input[ $flag ] );
 		}
 

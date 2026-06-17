@@ -34,6 +34,9 @@ final class WellKnown {
 	/** @var Envelope */
 	private $envelope;
 
+	/** @var Signer */
+	private $signer;
+
 	/**
 	 * @param Settings $settings Settings store.
 	 * @param Registry $registry Collector.
@@ -42,6 +45,7 @@ final class WellKnown {
 		$this->settings = $settings;
 		$this->registry = $registry;
 		$this->envelope = new Envelope( $settings, $registry );
+		$this->signer   = new Signer( $settings );
 	}
 
 	/**
@@ -65,7 +69,7 @@ final class WellKnown {
 		// canonical redirect resolves it to the homepage (a 200, not a 404). So
 		// security.txt etc. are intentionally absent — a provider that serves one
 		// adds its name here via the `agentify_well_known_routed` filter.
-		$names = array( 'discovery.json', 'agent-card.json', 'agent.json', 'mcp.json', 'api-catalog' );
+		$names = array( 'discovery.json', 'agent-card.json', 'agent.json', 'mcp.json', 'api-catalog', Signer::DIRECTORY );
 
 		/**
 		 * Filter the /.well-known names routed to WordPress by an explicit rule.
@@ -198,6 +202,13 @@ final class WellKnown {
 				// RFC 9727 API catalog, as an RFC 9264 link set.
 				$this->send( $this->envelope->api_catalog_json(), 'application/linkset+json', 'api-catalog' );
 				break;
+			case Signer::DIRECTORY:
+				// The Web Bot Auth key directory — served only when signing is on.
+				$directory = $this->signer->directory();
+				if ( '' !== $directory ) {
+					$this->send( $directory, 'application/json', Signer::DIRECTORY );
+				}
+				break;
 		}
 
 		// 3. Provider-registered documents.
@@ -297,11 +308,40 @@ final class WellKnown {
 			header( 'X-Content-Type-Options: nosniff' );
 			header( 'Access-Control-Allow-Origin: *' ); // Discovery docs are public by design.
 			header( 'Cache-Control: public, max-age=3600' );
+
+			// Web Bot Auth: sign the low-volume discovery JSON docs when enabled.
+			if ( in_array( $label, $this->signed_surfaces(), true ) && $this->signer->enabled() ) {
+				foreach ( $this->signer->sign( $body, $this->current_url() ) as $sig_header => $sig_value ) {
+					header( $sig_header . ': ' . $sig_value, false );
+				}
+			}
 		}
 		if ( ! $this->is_head() ) {
 			echo $body; // phpcs:ignore WordPress.Security.EscapeOutput -- JSON/plain payload.
 		}
 		exit;
+	}
+
+	/**
+	 * The discovery docs that receive RFC 9421 response signatures when signing is
+	 * on. Filterable — but broadening to cached HTML / llms.txt would mean an
+	 * edge-cached body carrying a frozen signature, so keep it to the JSON docs.
+	 *
+	 * @return string[]
+	 */
+	private function signed_surfaces() {
+		return (array) apply_filters( 'agentify_signed_surfaces', array( 'discovery.json', 'agent-card.json', 'agent.json', 'mcp.json' ) );
+	}
+
+	/**
+	 * The absolute URL of the current request, for the signature's @target-uri.
+	 *
+	 * @return string
+	 */
+	private function current_url() {
+		$uri  = isset( $_SERVER['REQUEST_URI'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '/';
+		$path = '/' . ltrim( (string) wp_parse_url( $uri, PHP_URL_PATH ), '/' );
+		return home_url( $path );
 	}
 
 	/**
