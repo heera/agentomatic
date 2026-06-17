@@ -14,17 +14,10 @@ export default {
   },
   data() {
     const fromHash = (window.location.hash || '').replace(/^#/, '');
-    let advanced = false;
-    try { advanced = localStorage.getItem('agentify.advanced') === '1'; } catch (e) { /* storage blocked (private mode) */ }
-    const allowedTabs = advanced
-      ? ['dashboard', 'settings', 'readiness', 'discovery']
-      : ['dashboard', 'settings', 'readiness'];
     return {
       api: createApi(this.boot),
-      advanced,
-      // Restore the tab from the URL hash so a refresh keeps the same page —
-      // but never land on a tab that's hidden in basic mode.
-      tab: allowedTabs.includes(fromHash) ? fromHash : 'dashboard',
+      // Restore the tab from the URL hash so a refresh keeps the same page.
+      tab: ['dashboard', 'settings', 'readiness', 'discovery'].includes(fromHash) ? fromHash : 'dashboard',
       settings: JSON.parse(JSON.stringify(this.boot.settings || {})),
       defaults: this.boot.defaults || {},
       readiness: this.boot.readiness || [],
@@ -117,14 +110,12 @@ export default {
       }
     },
     tabs() {
-      const all = [
+      return [
         { id: 'dashboard', label: 'Dashboard' },
         { id: 'settings', label: 'Settings' },
         { id: 'readiness', label: 'Readiness' },
-        { id: 'discovery', label: 'Discovery', advanced: true },
+        { id: 'discovery', label: 'Discovery' },
       ];
-      // The Discovery tab (the protocol machinery) is for Advanced mode only.
-      return all.filter((t) => this.advanced || !t.advanced);
     },
     dashSummary() {
       const c = (this.discovery && this.discovery.counts) || {};
@@ -171,13 +162,6 @@ export default {
     },
   },
   watch: {
-    advanced(val) {
-      try { localStorage.setItem('agentify.advanced', val ? '1' : '0'); } catch (e) { /* storage blocked */ }
-      // If basic mode just hid the active tab (Discovery), fall back to Dashboard.
-      if (!this.tabs.some((t) => t.id === this.tab)) {
-        this.tab = 'dashboard';
-      }
-    },
     tab(val) {
       // Reflect the active tab in the URL hash (no history spam, no reload).
       if (window.location.hash.replace(/^#/, '') !== val) {
@@ -228,11 +212,6 @@ export default {
     // the relevant content, not just the top of the page.
     goTo(target) {
       const { tab, anchor } = typeof target === 'string' ? { tab: target } : target || {};
-      // Some deep-links (e.g. the security.txt readiness fix) point at a surface
-      // that only exists in Advanced mode; reveal it so the jump never dead-ends.
-      if (!this.advanced && (tab === 'discovery' || anchor === 'ar-sec-security')) {
-        this.advanced = true;
-      }
       if (tab) this.tab = tab;
       if (!anchor) return;
       this.$nextTick(() => {
@@ -456,12 +435,6 @@ export default {
         </button>
       </nav>
 
-      <label class="ar__adv" :title="advanced ? 'Hide technical options' : 'Show technical options'">
-        <span class="ar__adv-label">Advanced</span>
-        <input v-model="advanced" type="checkbox" class="ar__adv-input" />
-        <span class="ar-toggle__track" aria-hidden="true"></span>
-      </label>
-
     </header>
 
     <Teleport to="body">
@@ -496,7 +469,6 @@ export default {
         <SettingsForm
           v-show="tab === 'settings'"
           v-model:settings="settings"
-          :advanced="advanced"
           :entity-types="entityTypes"
           :post-types="postTypes"
           :known-trainers="knownTrainers"
@@ -528,7 +500,6 @@ export default {
         <ActivityPanel
           v-show="tab === 'dashboard'"
           :data="activity"
-          :advanced="advanced"
           :summary="dashSummary"
           :loaded="activityLoaded"
           :refreshing="refreshingActivity"
@@ -579,7 +550,7 @@ export default {
           </ul>
         </div>
 
-        <div v-if="advanced && discoveryDocs.length" class="ar-rail-card">
+        <div v-if="discoveryDocs.length" class="ar-rail-card">
           <p class="ar-rail-card__label">Discovery docs</p>
           <ul class="ar-rail-links">
             <li v-for="d in discoveryDocs" :key="d.label">
