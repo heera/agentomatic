@@ -487,7 +487,7 @@ final class Readiness {
 			: "Disallow: /wp-admin/\nAllow: /wp-admin/admin-ajax.php\n";
 
 		return array(
-			'contents' => (string) apply_filters( 'robots_txt', $contents, $public ),
+			'contents' => (string) apply_filters( 'robots_txt', $contents, $public ), // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- invoking WordPress core's own robots_txt filter to reconstruct the served robots.txt (mirrors do_robots()), not declaring a new hook.
 			'static'   => false,
 		);
 	}

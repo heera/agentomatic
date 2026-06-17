@@ -40,6 +40,7 @@ Agentify also publishes a single, normalized discovery document, built to the co
 
 * **/.well-known/discovery.json** — an owner-curated document describing the site's identity, capabilities, APIs and agent cards. Other plugins can declare themselves through a single optional hook, so what an agent needs is aggregated in one place.
 * **/.well-known/agent-card.json** and **/.well-known/mcp.json** — an A2A agent card and an MCP manifest, generated automatically.
+* **Standards-aligned `.well-known` endpoints** — an RFC 9727 `api-catalog`, plus — *only when the capability actually exists* — an MCP server card and an Agent Skills index. Optional **response signing** (Web Bot Auth / HTTP Message Signatures, RFC 9421): sign the discovery documents with an Ed25519 key published at `/.well-known/http-message-signatures-directory`, so agents can verify they came from you. Off by default.
 * **WordPress Abilities API → MCP tools** — registered abilities are projected into MCP-shaped tool descriptors, and a running MCP server (if one is installed) is detected and linked. Agentify advertises tools; it does not execute them.
 * **Zero-config auto-discovery** — reads your registered REST API namespaces, public post types and the WordPress Abilities API, so a site is described even when no plugin declares itself. A **Discovery Hub** admin screen shows what an agent can see, and you decide what is published.
 
@@ -107,4 +108,5 @@ There is no minified-only code. The admin interface is built from Vue 3 source i
 * Agent-activity log — first-party, no IP logging.
 * Machine discovery document at /.well-known/discovery.json, with an optional registration hook (`wpdiscovery_register`) for plugins to declare capabilities, APIs and agent cards. You control what is published.
 * MCP & tools: projects the WordPress Abilities API into MCP-shaped tool descriptors, plus /.well-known/mcp.json and agent-card.json. Zero-config auto-discovery of REST namespaces and public post types.
+* Standards `.well-known` endpoints: api-catalog (RFC 9727); an MCP server card and an Agent Skills index when applicable; optional Ed25519 response signing (Web Bot Auth, RFC 9421) for the discovery documents, off by default.
 * Admin Discovery Hub for inspecting what agents can see, with per-item publish/suppress control.
