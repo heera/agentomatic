@@ -75,7 +75,7 @@ A global facade is also available (guard it, since the call is direct):
 if ( class_exists( 'Agentomatic_Discovery' ) ) {
     Agentomatic_Discovery::register( [...] );
 }
-```.
+```
 
 **Resource fields:** `id` (req, slug), `title` (req), `type` (req — `content`,
 `commerce`, `scheduling`, `courses`, `forms`, `crm`, `auth`, `search`, `media`,
