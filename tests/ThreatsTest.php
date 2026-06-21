@@ -165,6 +165,24 @@ final class ThreatsTest extends TestCase {
 		$this->assertCount( 0, $r['sources'] );
 	}
 
+	/* -- Identity card (the recognition layer) --------------------------- */
+
+	public function test_a_recognised_crawler_carries_its_identity_card() {
+		// A known SEO crawler flagged for volume gets a plain-English card (kind +
+		// operator + docs link), so the owner can judge it without knowing the token.
+		$r = $this->analyze( array( $this->source( self::SEMRUSH, 'SemrushBot', 800, 10 * DAY_IN_SECONDS, 0 ) ) );
+		$s = $r['sources'][0];
+		$this->assertIsArray( $s['known'] );
+		$this->assertSame( 'SemrushBot', $s['known']['name'] );
+		$this->assertSame( 'Semrush', $s['known']['operator'] );
+		$this->assertSame( 'seo', $s['known']['kind'] );
+	}
+
+	public function test_an_unrecognised_source_has_no_identity_card() {
+		$r = $this->analyze( array( $this->source( self::NEWBOT, 'Other bot', 3, HOUR_IN_SECONDS, 600 ) ) );
+		$this->assertNull( $r['sources'][0]['known'] );
+	}
+
 	public function test_a_new_only_browser_is_dropped_as_noise() {
 		// A one-off newly-seen browser we can't safely block isn't worth surfacing in
 		// a suspicious panel — only spoof/heavy/actionable rows make the cut.

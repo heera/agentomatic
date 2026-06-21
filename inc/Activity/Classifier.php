@@ -70,6 +70,13 @@ final class Classifier {
 				return $label;
 			}
 		}
+		// A crawler we recognise but don't carry a hand-written label for (ShapBot,
+		// SemrushBot, DataForSeoBot…). Name it from the shared recognition catalog so
+		// the activity feed and the review queue never disagree on who a client is.
+		$known = Catalog::identify( $ua );
+		if ( $known ) {
+			return $known['name'];
+		}
 		// A client impersonating a long-dead mobile/embedded stack (Symbian, J2ME,
 		// old Nokia/BlackBerry/Windows CE…). No real visitor fetches a machine
 		// endpoint from a 2004 feature phone — these are near-always scanners and

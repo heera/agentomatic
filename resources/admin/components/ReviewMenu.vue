@@ -80,6 +80,16 @@ export default {
       if ('no-token' === reason) return 'No safe one-click rule — block in Settings if needed';
       return '';
     },
+    // A recognised crawler's real name (ShapBot, GPTBot) wins over the generic
+    // classifier label ("Other bot"), so the row title says who it actually is.
+    rowTitle(s) {
+      return (s.known && s.known.name) || s.agent;
+    },
+    // Plain-English category for a recognised crawler — what an owner needs to
+    // judge it, without knowing the token: an AI crawler is a real choice to make.
+    kindLabel(kind) {
+      return { ai: 'AI crawler', seo: 'SEO crawler', search: 'Search engine', social: 'Social preview' }[kind] || 'Crawler';
+    },
     ago(iso) {
       const then = new Date(iso).getTime();
       if (!then) return '';
@@ -132,11 +142,16 @@ export default {
         <li v-for="(s, i) in pending" :key="i" class="ar-susp-row">
           <div class="ar-susp-row__info">
             <div class="ar-susp-row__head">
-              <span class="ar-susp-row__agent">{{ s.agent }}</span>
+              <span class="ar-susp-row__agent">{{ rowTitle(s) }}</span>
               <span v-if="s.flags.heavy || s.flags.new" class="ar-susp-badges">
                 <span v-if="s.flags.heavy" class="ar-susp-badge is-heavy">high volume</span>
                 <span v-if="s.flags.new" class="ar-susp-badge is-new">new</span>
               </span>
+            </div>
+            <div v-if="s.known" class="ar-susp-row__known">
+              <span class="ar-susp-kind" :class="'is-' + s.known.kind">{{ kindLabel(s.known.kind) }}</span>
+              <span class="ar-susp-row__by">{{ s.known.operator }}</span>
+              <a v-if="s.known.url" class="ar-susp-row__learn" :href="s.known.url" target="_blank" rel="noopener noreferrer">what is this?</a>
             </div>
             <code class="ar-susp-row__ua" :title="s.ua">{{ s.ua || 'No User-Agent' }}</code>
             <div class="ar-susp-row__meta">

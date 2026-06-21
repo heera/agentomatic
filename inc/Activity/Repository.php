@@ -297,6 +297,7 @@ final class Repository {
 			$out[] = array(
 				'ua'        => substr( $ua, 0, 255 ),
 				'agent'     => isset( $s['agent'] ) ? (string) $s['agent'] : '',
+				'known'     => Catalog::identify( $ua ),
 				'hits'      => $hits,
 				'recent'    => $rec,
 				'firstSeen' => $first ? gmdate( 'c', $first ) : '',

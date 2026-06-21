@@ -45,6 +45,12 @@ final class ClassifierTest extends TestCase {
 		$this->assertSame( 'Other bot', Classifier::classify( 'WhateverBot/1.0 (+http://example.com)' ) );
 	}
 
+	public function test_a_catalogued_crawler_is_named_from_the_catalog() {
+		// ShapBot has no hand-written label, but the recognition catalog names it, so
+		// the feed and the review queue agree — rather than a vague "Other bot".
+		$this->assertSame( 'ShapBot', Classifier::classify( 'Mozilla/5.0 AppleWebKit/537.36 (KHTML, like Gecko); compatible; ShapBot/0.1.0' ) );
+	}
+
 	/* -- is_spoof() heuristic -------------------------------------------- */
 
 	/**
