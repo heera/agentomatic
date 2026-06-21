@@ -15,18 +15,24 @@ export default {
     return { open: false };
   },
   computed: {
-    // Pending = still needs a decision. A blocked client is handled, not "to review".
+    // Pending = still needs a decision. A blocked client is handled (and managed in
+    // Settings), so it's neither listed, counted, nor surfaced here at all.
     pending() {
       return (this.threats.sources || []).filter((s) => !s.blocked);
-    },
-    blockedCount() {
-      return (this.threats.sources || []).filter((s) => s.blocked).length;
     },
     count() {
       return this.pending.length;
     },
+    // Counts reflect ONLY the pending rows shown here, so the chips, list and badge
+    // always agree (the server's threats.counts include already-blocked sources).
     counts() {
-      return this.threats.counts || { new: 0, heavy: 0, spoof: 0 };
+      const c = { new: 0, heavy: 0, spoof: 0 };
+      for (const s of this.pending) {
+        if (s.flags.new) c.new += 1;
+        if (s.flags.heavy) c.heavy += 1;
+        if (s.flags.spoof) c.spoof += 1;
+      }
+      return c;
     },
   },
   mounted() {
@@ -135,10 +141,6 @@ export default {
         </li>
       </ul>
       <p v-else class="ar__review-empty">Nothing needs a look right now.</p>
-
-      <button v-if="blockedCount" type="button" class="ar__review-foot" @click="$emit('navigate', { tab: 'settings' }); close()">
-        ✓ {{ blockedCount }} already blocked · manage in Settings
-      </button>
     </div>
   </div>
 </template>
