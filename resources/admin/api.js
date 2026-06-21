@@ -39,5 +39,7 @@ export function createApi(boot) {
     clearActivity: () => request('/activity', { method: 'DELETE' }),
     blockAgent: (payload) =>
       request('/activity/block', { method: 'POST', body: JSON.stringify(payload) }),
+    allowAgent: (payload) =>
+      request('/activity/allow', { method: 'POST', body: JSON.stringify(payload) }),
   };
 }

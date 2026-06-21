@@ -10,8 +10,9 @@ export default {
   props: {
     threats: { type: Object, default: () => ({ sources: [], counts: {}, blockingOn: false }) },
     blocking: { type: Object, default: null },
+    allowing: { type: Object, default: null },
   },
-  emits: ['block', 'navigate'],
+  emits: ['block', 'allow', 'navigate'],
   data() {
     return { open: false };
   },
@@ -65,6 +66,14 @@ export default {
       const b = this.blocking;
       if (!b) return false;
       return b.spoofed ? 'spoofed' === s.action : b.ua === s.ua;
+    },
+    // "Allow" / trust this client (an 'agent' row) — adds it to the allowlist so
+    // it's never blocked and never flagged for review again.
+    doAllow(s) {
+      this.$emit('allow', { ua: s.ua });
+    },
+    isAllowing(s) {
+      return !!this.allowing && this.allowing.ua === s.ua;
     },
     reasonText(reason) {
       if ('no-ua' === reason) return 'No User-Agent to match';
@@ -135,14 +144,16 @@ export default {
             </div>
           </div>
           <div class="ar-susp-row__action">
-            <button
-              v-if="'agent' === s.action || 'spoofed' === s.action"
-              type="button"
-              class="ar-susp-block"
-              :disabled="isBlocking(s)"
-              @click="doBlock(s)"
-            >
-              {{ isBlocking(s) ? 'Blocking…' : ('spoofed' === s.action ? 'Block scanners' : 'Block ' + s.token) }}
+            <template v-if="'agent' === s.action">
+              <button type="button" class="ar-susp-block" :disabled="isBlocking(s) || isAllowing(s)" @click="doBlock(s)">
+                {{ isBlocking(s) ? 'Blocking…' : 'Block ' + s.token }}
+              </button>
+              <button type="button" class="ar-susp-allow" :disabled="isBlocking(s) || isAllowing(s)" @click="doAllow(s)">
+                {{ isAllowing(s) ? 'Allowing…' : 'Allow' }}
+              </button>
+            </template>
+            <button v-else-if="'spoofed' === s.action" type="button" class="ar-susp-block" :disabled="isBlocking(s)" @click="doBlock(s)">
+              {{ isBlocking(s) ? 'Blocking…' : 'Block scanners' }}
             </button>
             <span v-else class="ar-susp-reason">{{ reasonText(s.reason) }}</span>
           </div>

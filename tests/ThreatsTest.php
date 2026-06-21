@@ -157,6 +157,14 @@ final class ThreatsTest extends TestCase {
 		$this->assertSame( 0, $r['counts']['new'] );
 	}
 
+	public function test_an_allowed_agent_is_excluded_from_the_panel() {
+		// "Allow" adds the token to allowed_agents → it's treated as trusted/protected
+		// and never appears in the review list again.
+		update_option( Settings::OPTION, array( 'allowed_agents' => array( 'newbot' ) ) );
+		$r = $this->analyze( array( $this->source( self::NEWBOT, 'Other bot', 3, HOUR_IN_SECONDS ) ) );
+		$this->assertCount( 0, $r['sources'] );
+	}
+
 	public function test_a_new_only_browser_is_dropped_as_noise() {
 		// A one-off newly-seen browser we can't safely block isn't worth surfacing in
 		// a suspicious panel — only spoof/heavy/actionable rows make the cut.

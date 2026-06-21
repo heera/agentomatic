@@ -579,6 +579,15 @@ export default {
           Your normal pages, your real files on disk, and anything your SSL certificate needs keep working as usual.
         </p>
       </div>
+
+      <div v-if="(settings.allowed_agents || []).length" class="ar-field ar-field--allow">
+        <label>Always allowed <span class="ar-field__tag">trusted</span></label>
+        <TagInput v-model="settings.allowed_agents" placeholder="Add a user-agent to trust" />
+        <small class="ar-field__hint">
+          Clients you marked <strong>Allow</strong> in the review list — never blocked and never flagged
+          again (the same treatment as Googlebot). Remove one to start flagging it again.
+        </small>
+      </div>
     </section>
 
     <!-- Content types -------------------------------------------------- -->

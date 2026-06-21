@@ -29,6 +29,7 @@ export default {
       activityLoaded: false,
       refreshingActivity: false,
       blockingNow: null,
+      allowingNow: null,
       entityTypes: this.boot.entityTypes || ['Person', 'Organization'],
       postTypes: this.boot.postTypes || [],
       knownTrainers: this.boot.knownTrainers || [],
@@ -89,7 +90,7 @@ export default {
         llms_full_posts: s.llms_full_posts, post_types: s.post_types,
         rest_namespaces: s.rest_namespaces, oauth_auth_server: s.oauth_auth_server, content_signal: s.content_signal,
         blocked_trainers: s.blocked_trainers, suppressed_resources: s.suppressed_resources,
-        block_agents: s.block_agents, block_spoofed: s.block_spoofed, blocked_agents: s.blocked_agents,
+        block_agents: s.block_agents, block_spoofed: s.block_spoofed, blocked_agents: s.blocked_agents, allowed_agents: s.allowed_agents,
         security: s.security,
         expertise: id.expertise, same_as: id.same_as,
       });
@@ -417,11 +418,30 @@ export default {
         this.blockingNow = null;
       }
     },
-    // A fingerprint of just the blocking-relevant settings, to detect when the
-    // dashboard's "blocked" flags have gone stale after a settings change.
+    // "Allow" / trust a flagged client — same shape as blockAgent; the endpoint adds
+    // the derived token to the allowlist and returns refreshed stats + settings.
+    async allowAgent(payload) {
+      this.allowingNow = payload;
+      try {
+        const res = await this.api.allowAgent(payload);
+        this.activity = res.activity || res;
+        if (res.settings) this.syncBlockSettings(res.settings);
+        this._activityBlockKey = this.blockingKeyOf(this.settings);
+      } catch (e) {
+        this.flash('error', e.message);
+      } finally {
+        this.allowingNow = null;
+      }
+    },
+    // A fingerprint of the block/allow-relevant settings, to detect when the
+    // dashboard's flags have gone stale after a settings change.
     blockingKeyOf(s) {
       s = s || {};
-      return JSON.stringify([ !!s.block_agents, !!s.block_spoofed, (s.blocked_agents || []).slice().sort() ]);
+      return JSON.stringify([
+        !!s.block_agents, !!s.block_spoofed,
+        (s.blocked_agents || []).slice().sort(),
+        (s.allowed_agents || []).slice().sort(),
+      ]);
     },
     // Reflect a Dashboard block into the live Settings state + saved snapshot, so the
     // Settings tab shows the new denylist entry / armed toggle immediately — without
@@ -432,6 +452,9 @@ export default {
       this.settings.blocked_agents = Array.isArray(saved.blocked_agents)
         ? saved.blocked_agents.slice()
         : (this.settings.blocked_agents || []);
+      this.settings.allowed_agents = Array.isArray(saved.allowed_agents)
+        ? saved.allowed_agents.slice()
+        : (this.settings.allowed_agents || []);
       this.settings.block_agents = !!saved.block_agents;
       this.settings.block_spoofed = !!saved.block_spoofed;
       this.$nextTick(() => { this._skipAutosave = false; });
@@ -440,6 +463,7 @@ export default {
       try {
         const snap = JSON.parse(this.savedSnapshot);
         snap.blocked_agents = this.settings.blocked_agents;
+        snap.allowed_agents = this.settings.allowed_agents;
         snap.block_agents = this.settings.block_agents;
         snap.block_spoofed = this.settings.block_spoofed;
         this.savedSnapshot = JSON.stringify(snap);
@@ -499,7 +523,9 @@ export default {
       <ReviewMenu
         :threats="(activity && activity.threats) || {}"
         :blocking="blockingNow"
+        :allowing="allowingNow"
         @block="blockAgent"
+        @allow="allowAgent"
         @navigate="goTo"
       />
     </header>

@@ -198,4 +198,14 @@ final class GuardTest extends TestCase {
 		$this->assertTrue( $saved['block_spoofed'] );
 		$this->assertTrue( Guard::denies( self::NOKIA ) );
 	}
+
+	/* -- Trust-list (the "Allow" action) --------------------------------- */
+
+	public function test_allow_agent_makes_a_client_never_blocked() {
+		$settings = new Settings();
+		$settings->block_agent( 'AhrefsBot' );  // on the denylist + enforcement on…
+		$settings->allow_agent( 'AhrefsBot' );  // …but now trusted.
+		$this->assertContains( 'AhrefsBot', ( new Settings() )->get( 'allowed_agents', array() ) );
+		$this->assertFalse( Guard::denies( self::AHREFS ), 'A trusted agent is never blocked, even when on the denylist.' );
+	}
 }

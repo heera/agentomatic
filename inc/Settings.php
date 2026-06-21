@@ -68,6 +68,7 @@ final class Settings {
 			'block_agents'     => false, // Master switch for denying agents at the generated endpoints.
 			'block_spoofed'    => true,  // When blocking is on, also deny spoofed/legacy-device UAs (the "Likely spoof/scanner" class). No effect while block_agents is false.
 			'blocked_agents'   => array(), // Owner's custom user-agent substrings to deny (case-insensitive). Empty = none.
+			'allowed_agents'   => array(), // Owner's trust-list (via the activity panel's "Allow"): never blocked, never flagged for review. Empty = none.
 		);
 
 		/**
@@ -271,6 +272,29 @@ final class Settings {
 	}
 
 	/**
+	 * Add one user-agent token to the owner's trust-list — the "Allow" action on a
+	 * flagged row. An allowed agent is treated like a protected search engine: never
+	 * blocked (even by a broad rule) and never flagged for review again. Full
+	 * read-modify-write, deduped case-insensitively (see {@see block_agent()}).
+	 *
+	 * @param string $token Raw user-agent substring to trust.
+	 * @return array The stored settings.
+	 */
+	public function allow_agent( $token ) {
+		$token = substr( trim( (string) $token ), 0, 200 );
+		$all   = $this->all();
+		if ( '' !== $token ) {
+			$list  = array_values( (array) $all['allowed_agents'] );
+			$lower = array_map( 'strtolower', $list );
+			if ( ! in_array( strtolower( $token ), $lower, true ) ) {
+				$list[] = $token;
+			}
+			$all['allowed_agents'] = $list;
+		}
+		return $this->update( $all );
+	}
+
+	/**
 	 * Restore every setting to its factory default, wiping the stored option and
 	 * any generated caches. Identity text, crawler policy and feature toggles all
 	 * revert. Returns the resolved (default) settings.
@@ -428,6 +452,8 @@ final class Settings {
 		$clean['block_spoofed']  = ! isset( $input['block_spoofed'] ) ? $defaults['block_spoofed'] : ! empty( $input['block_spoofed'] );
 		$agents                  = isset( $input['blocked_agents'] ) ? $input['blocked_agents'] : array();
 		$clean['blocked_agents'] = $this->sanitize_list( $agents, 'sanitize_text_field' );
+		$allowed                 = isset( $input['allowed_agents'] ) ? $input['allowed_agents'] : array();
+		$clean['allowed_agents'] = $this->sanitize_list( $allowed, 'sanitize_text_field' );
 
 		/**
 		 * Filter the sanitised settings before they are stored.

@@ -173,6 +173,11 @@ final class Guard {
 	public static function protected_agents() {
 		$protected = array( 'googlebot', 'bingbot', 'duckduckbot', 'applebot', 'yandex' );
 
+		// The owner's own trust-list (added via the activity panel's "Allow"): these
+		// are never blocked AND never flagged for review, exactly like the engines above.
+		$allowed   = (array) ( new Settings() )->get( 'allowed_agents', array() );
+		$protected = array_merge( $protected, $allowed );
+
 		/**
 		 * Filter the always-allow list — agents that the block feature must never
 		 * deny, whatever the denylist or spoof heuristic say.

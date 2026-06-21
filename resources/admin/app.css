@@ -1160,6 +1160,16 @@ select.ar-input {
 .ar-susp-block:hover { text-decoration: underline; }
 .ar-susp-block:focus-visible { outline: 2px solid var(--ar-accent); outline-offset: 2px; border-radius: 2px; }
 .ar-susp-block:disabled { color: var(--ar-ink-faint); cursor: default; text-decoration: none; }
+/* Secondary "Allow" (trust) link — quieter than Block, set off to its right. */
+.ar-susp-allow {
+  appearance: none; cursor: pointer; white-space: nowrap;
+  font-family: var(--ar-mono); font-size: 11.5px; letter-spacing: 0.02em;
+  padding: 0; border: 0; background: none; color: var(--ar-ink-soft); margin-left: 16px;
+  transition: color 0.15s ease;
+}
+.ar-susp-allow:hover { color: var(--ar-ink); text-decoration: underline; }
+.ar-susp-allow:focus-visible { outline: 2px solid var(--ar-accent); outline-offset: 2px; border-radius: 2px; }
+.ar-susp-allow:disabled { color: var(--ar-ink-faint); cursor: default; text-decoration: none; }
 .ar-susp-blocked { font-family: var(--ar-mono); font-size: 11px; color: var(--ar-good); white-space: nowrap; }
 .ar-susp-reason { font-size: 11px; font-style: italic; color: var(--ar-ink-faint); line-height: 1.45; }
 

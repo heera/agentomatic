@@ -76,6 +76,17 @@ final class Module {
 				),
 			)
 		);
+
+		register_rest_route(
+			'agentimus/v1',
+			'/activity/allow',
+			array(
+				'methods'             => 'POST',
+				'permission_callback' => array( $this, 'can_manage' ),
+				'callback'            => array( $this, 'allow' ),
+				'args'                => array( 'ua' => array( 'type' => 'string' ) ),
+			)
+		);
 	}
 
 	/**
@@ -103,6 +114,28 @@ final class Module {
 			);
 		}
 		$this->settings->block_agent( $token );
+		return rest_ensure_response( $this->block_payload() );
+	}
+
+	/**
+	 * REST: POST /activity/allow — the panel's "Allow" / trust action. Adds the
+	 * derived token to the owner's allowlist (never blocked, never flagged again),
+	 * then returns the refreshed payload so the panel + Settings update in place.
+	 *
+	 * @param \WP_REST_Request $request Request.
+	 * @return \WP_REST_Response|\WP_Error
+	 */
+	public function allow( \WP_REST_Request $request ) {
+		$ua    = (string) $request->get_param( 'ua' );
+		$token = Guard::suggest_token( $ua );
+		if ( '' === $token ) {
+			return new \WP_Error(
+				'agentimus_no_safe_token',
+				__( 'No safe allow rule could be derived for this client.', 'agentimus' ),
+				array( 'status' => 422 )
+			);
+		}
+		$this->settings->allow_agent( $token );
 		return rest_ensure_response( $this->block_payload() );
 	}
 
