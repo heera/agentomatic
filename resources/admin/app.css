@@ -1003,7 +1003,20 @@ select.ar-input {
   background: linear-gradient(to bottom, rgba(255, 253, 247, 0), var(--ar-surface) 82%);
 }
 .ar-act-feedfade.is-visible { opacity: 1; }
-.ar-act-feedfade__chev { color: var(--ar-ink-faint); }
+/* The chevron is a real button: click it to nudge the feed down (the list also
+   scrolls on its own). pointer-events is re-enabled here because the fade
+   gradient above is click-through; disabled = nothing more to scroll. */
+.ar-act-feedfade__btn {
+  pointer-events: auto; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; padding: 0; margin: 0;
+  border: 0; border-radius: 999px; background: transparent;
+  color: var(--ar-ink-faint); transition: color 0.15s ease, background 0.15s ease;
+}
+.ar-act-feedfade__btn:hover { color: var(--ar-ink); background: var(--ar-surface-2); }
+.ar-act-feedfade__btn:focus-visible { outline: 2px solid var(--ar-accent); outline-offset: 2px; }
+.ar-act-feedfade__btn:disabled { pointer-events: none; }
+.ar-act-feedfade__chev { display: block; }
 .ar-act-feed li {
   display: flex; align-items: center; gap: 10px;
   padding: 8px 2px; border-bottom: 1px solid var(--ar-line);
