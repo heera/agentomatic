@@ -250,8 +250,9 @@ export default {
             <div class="ar-susp-row__info">
               <div class="ar-susp-row__head">
                 <span class="ar-susp-row__agent">{{ s.agent }}</span>
-                <span class="ar-susp-badges">
-                  <span v-if="s.flags.spoof" class="ar-susp-badge is-spoof">spoofed UA</span>
+                <!-- Spoof is the agent's identity (its name is already "Likely
+                     spoof/scanner"), so badges carry only the behavioral signals. -->
+                <span v-if="s.flags.heavy || s.flags.new" class="ar-susp-badges">
                   <span v-if="s.flags.heavy" class="ar-susp-badge is-heavy">high volume</span>
                   <span v-if="s.flags.new" class="ar-susp-badge is-new">new</span>
                 </span>
