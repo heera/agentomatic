@@ -1,0 +1,50 @@
+name: Deploy to WordPress.org
+
+# Publishes a release to the WordPress.org plugin directory via SVN.
+#
+# Trigger: push a tag that matches the version, with NO "v" prefix
+# (e.g. `git tag 1.0.0 && git push origin 1.0.0`). The tag name becomes the
+# SVN tag directory, so it MUST equal the `Stable tag` in readme.txt.
+#
+# Build step is mandatory here: assets/admin/ (the compiled Vue app) is
+# gitignored, so a bare checkout has no admin UI. We rebuild it into the
+# workspace, then the 10up action rsyncs the tree honoring .distignore — the
+# fresh build ships, node_modules/vendor/tests do not.
+
+on:
+  push:
+    tags:
+      - '[0-9]+.[0-9]+.[0-9]+'
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build & deploy ${{ github.ref_name }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Build admin UI (regenerates assets/admin/)
+        run: |
+          npm ci
+          npm run build
+
+      - name: Fail if the build produced nothing
+        run: test -s assets/admin/app.js && test -s assets/admin/app.css
+
+      - name: Deploy to WordPress.org
+        uses: 10up/action-wordpress-plugin-deploy@stable
+        env:
+          SVN_USERNAME: ${{ secrets.SVN_USERNAME }}
+          SVN_PASSWORD: ${{ secrets.SVN_PASSWORD }}
+          SLUG: agentimus
+          # ASSETS_DIR defaults to .wordpress-org (icon, banner, screenshots).

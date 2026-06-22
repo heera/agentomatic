@@ -1,0 +1,28 @@
+name: Update WordPress.org assets
+
+# Syncs the plugin-listing assets (icon, banner, screenshots) and readme.txt
+# to WordPress.org WITHOUT cutting a release — useful for swapping a banner or
+# fixing readme copy between versions. Runs only when those files change on
+# main, so ordinary code pushes don't touch the directory.
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.wordpress-org/**'
+      - 'readme.txt'
+
+jobs:
+  assets:
+    name: Push assets & readme
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update assets on WordPress.org
+        uses: 10up/action-wordpress-plugin-asset-update@stable
+        env:
+          SVN_USERNAME: ${{ secrets.SVN_USERNAME }}
+          SVN_PASSWORD: ${{ secrets.SVN_PASSWORD }}
+          SLUG: agentimus
