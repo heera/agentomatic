@@ -1,11 +1,19 @@
 name: Update WordPress.org assets
 
-# Syncs the plugin-listing assets (icon, banner, screenshots) and readme.txt
-# to WordPress.org WITHOUT cutting a release — useful for swapping a banner or
-# fixing readme copy between versions. Runs only when those files change on
-# main, so ordinary code pushes don't touch the directory.
+# Syncs the plugin-listing assets (icon, banner, screenshots) and readme.txt to
+# WordPress.org WITHOUT cutting a release — useful for swapping a banner or
+# fixing readme copy between versions. Runs when those files change on main, or
+# on demand from the Actions tab / `gh workflow run`.
+#
+# It builds the Vue admin app FIRST. trunk already contains the compiled
+# assets/admin/ (committed by the deploy workflow), but that directory is
+# gitignored — so a bare checkout looks like it deletes app.js/app.css, and the
+# 10up action aborts with "Other files have been modified; changes not
+# deployed". Rebuilding it restores parity with trunk, so only the genuine
+# asset/readme changes are committed.
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
@@ -19,6 +27,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Build admin UI (so trunk's gitignored assets/admin isn't seen as deleted)
+        run: |
+          npm ci
+          npm run build
 
       - name: Update assets on WordPress.org
         uses: 10up/action-wordpress-plugin-asset-update@stable
