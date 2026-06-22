@@ -1,10 +1,21 @@
 # Agentimus
 
 [![PHP compatibility](https://github.com/heera/agentimus/actions/workflows/php-compat.yml/badge.svg?branch=main)](https://github.com/heera/agentimus/actions/workflows/php-compat.yml)
+[![WordPress plugin version](https://img.shields.io/wordpress/plugin/v/agentimus?label=wordpress.org)](https://wordpress.org/plugins/agentimus/)
+[![Tested up to](https://img.shields.io/wordpress/plugin/tested/agentimus)](https://wordpress.org/plugins/agentimus/)
+[![License: GPL-2.0-or-later](https://img.shields.io/badge/license-GPL--2.0--or--later-blue)](LICENSE)
 
 Make any WordPress site legible to AI agents and crawlers — `llms.txt`, a full-text
 edition, markdown delivery, JSON-LD, and content-signal robots rules. Lightweight,
 no SEO bloat, no framework.
+
+**Live on WordPress.org:** <https://wordpress.org/plugins/agentimus/>
+
+## Install
+
+- **From your dashboard** — Plugins → Add New → search **"Agentimus"** → Install → Activate.
+- **From WordPress.org** — <https://wordpress.org/plugins/agentimus/>.
+- **From source** — clone this repo, run `npm install && npm run build` (produces `assets/admin/`), then copy or symlink the folder into `wp-content/plugins/`.
 
 ## What it does
 
@@ -17,11 +28,13 @@ no SEO bloat, no framework.
 | XML sitemap | `/agentimus-sitemap.xml` — opt-in fallback, generated **only** when neither WordPress core nor an SEO plugin already provides one (sitemap index + paginated sub-sitemaps) |
 | Crawler policy | `robots.txt` content-signal + training-crawler blocklist |
 | Discovery layer | `/.well-known/discovery.json` (+ `agent-card.json`, `mcp.json`) |
+| Crawl enforcement (opt-in) | hard-block (403) denylisted or spoofed "scanner" user-agents at the generated endpoints — ACME-safe, off by default |
 
 ## In the admin
 
 - **Readiness report** — pass/warn/fail checks, each with a plain-English suggestion and a deep link to the fix (including a "sitemap advertised in robots.txt" check).
 - **Agent activity log** — a local-only dashboard (no IP logged) of which AI agents and crawlers fetch your endpoints; repeat hits are grouped with a count, newest first.
+- **Activity to review** — flags new, unusually high-volume, or spoofed/scanner clients in a nav-bar review queue, each with one-click **Block** (or **Allow**/trust). Pairs with the opt-in *Block scanners & scrapers* enforcement in Settings.
 - **Factory reset** — one click restores every setting to its recommended defaults, with a preview of exactly what will change.
 
 ## Architecture
@@ -91,11 +104,11 @@ in **Discovery Hub → Validation**.
 
 `$registry->add_well_known( [...] )` serves a `/.well-known/<name>` doc
 (callback | redirect | file). See **`examples/integrate-your-plugin.php`** for the
-full copy-paste reference, and the **WP_Discovery Protocol** spec for the standard.
+full copy-paste reference, and the [**WP_Discovery Protocol**](https://github.com/heera/wp-discovery-protocol) spec for the standard.
 
 ## Hooks & filters
 
-The dev-facing subset (the plugin fires ~40 in all; every one is optional).
+The dev-facing subset (the plugin fires ~55 in all; every one is optional).
 
 **Identity**
 - `agentimus_entity_types` `(array $types)` — selectable schema.org entity types; add subtypes (e.g. `Restaurant`).
@@ -119,10 +132,15 @@ The dev-facing subset (the plugin fires ~40 in all; every one is optional).
 - `agentimus_signed_surfaces` `(array $docs)` — which discovery docs are signed (default the four core docs).
 - `agentimus_signing_secret_key` `(string '')` — supply the Ed25519 secret key from a constant/env instead of the DB.
 
-**Crawlers & activity log**
-- `agentimus_known_trainers` `(array $uas)` — AI-trainer user-agents offered for blocking.
+**Crawlers, blocking & activity log**
+- `agentimus_known_trainers` `(array $uas)` — AI-trainer user-agents offered for `robots.txt` blocking.
+- `agentimus_known_scanners` `(array $uas)` — scanner user-agents offered as one-click block suggestions.
+- `agentimus_spoof_signatures` `(array $sigs)` — platform markers that flag a spoofed/legacy-device "scanner".
+- `agentimus_deny_request` `(bool $deny, string $ua)` — the Guard's final say on whether to 403 a request.
+- `agentimus_block_allowlist` `(array $uas)` — clients that must never be hard-blocked (search engines + your allow-list).
 - `agentimus_agent_map` `(array $map)` — user-agent → friendly label for the activity log.
 - `agentimus_activity_retention_days` `(int $days)` — how long agent hits are kept.
+- `agentimus_heavy_min_hits` / `agentimus_burst_min_hits` / `agentimus_new_agent_seconds` / `agentimus_threats_limit` — thresholds for the "activity to review" queue.
 
 **Schema (JSON-LD)**
 - `agentimus_schema_for_post` `(array $node, WP_Post $post)` — replace a post's node (e.g. a `Product`).
@@ -165,5 +183,9 @@ distributed `.zip` (the `.org` SVN tag), not the repo.
 
 ## Requirements
 
-- WordPress 6.9+
+- WordPress 6.9+ (tested up to 7.0)
 - PHP 7.4+.
+
+## License
+
+[GPL-2.0-or-later](LICENSE). The admin app is built from Vue source in `resources/` with Vite — no minified-only code ships, so the build is reproducible.
