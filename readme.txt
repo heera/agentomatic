@@ -98,6 +98,8 @@ Agentimus also fires the product-aliased `agentimus_register`; you may hook eith
 2. Settings — your public identity, a security.txt contact, and one toggle per agent-readiness signal.
 3. Readiness report — a plain-English pass/warn checklist of what's enabled and what's still missing.
 4. Discovery Hub — every plugin's capabilities aggregated into one document, with per-item publish/suppress control.
+5. Crawler policy & scanner blocking — declare your content-usage signals, block AI-training crawlers by name, and turn away spoofed or scanner traffic.
+6. Activity to review — a nav-bar alert surfaces new, high-volume or spoofed clients from any screen, with one-click Block or Allow (no IP logging).
 
 == External services ==
 
