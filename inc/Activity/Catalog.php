@@ -31,7 +31,8 @@ final class Catalog {
 	 * (e.g. applebot-extended before a bare applebot). `kind` is one of
 	 * ai | seo | search | social and drives the friendly category label in the UI.
 	 * URLs point at each operator's own crawler/bot documentation where one exists,
-	 * so "what is this?" lands on the authoritative page rather than a third party.
+	 * so "what is this?" lands on the authoritative page; where an operator publishes
+	 * none (or it has rotted), the URL points at the Known Agents crawler directory.
 	 *
 	 * @return array<string,array{0:string,1:string,2:string,3:string}>
 	 */
@@ -54,11 +55,11 @@ final class Catalog {
 			'ccbot'              => array( 'CCBot', 'Common Crawl', 'ai', 'https://commoncrawl.org/faq' ),
 			'amazonbot'          => array( 'Amazonbot', 'Amazon', 'ai', 'https://developer.amazon.com/amazonbot' ),
 			'cohere-ai'          => array( 'cohere-ai', 'Cohere', 'ai', 'https://cohere.com' ),
-			'diffbot'            => array( 'Diffbot', 'Diffbot', 'ai', 'https://www.diffbot.com/support/' ),
+			'diffbot'            => array( 'Diffbot', 'Diffbot', 'ai', 'https://knownagents.com/agents/diffbot' ),
 			'shapbot'            => array( 'ShapBot', 'Parallel', 'ai', 'https://parallel.ai' ),
-			'youbot'             => array( 'YouBot', 'You.com', 'ai', 'https://about.you.com/youbot/' ),
+			'youbot'             => array( 'YouBot', 'You.com', 'ai', 'https://knownagents.com/agents/youbot' ),
 			'imagesiftbot'       => array( 'ImageSiftBot', 'ImageSift', 'ai', 'https://imagesift.com/about' ),
-			'omgilibot'          => array( 'Omgilibot', 'Webz.io', 'ai', 'https://webz.io/blog/web-data/the-ultimate-guide-to-the-omgili-bot/' ),
+			'omgilibot'          => array( 'Omgilibot', 'Webz.io', 'ai', 'https://webz.io/bot.html' ),
 			'timpibot'           => array( 'Timpibot', 'Timpi', 'ai', 'https://timpi.io' ),
 
 			// — SEO / marketing crawlers: backlink & rank tooling, often high-volume. —
@@ -68,8 +69,8 @@ final class Catalog {
 			'mj12bot'            => array( 'MJ12bot', 'Majestic', 'seo', 'https://mj12bot.com/' ),
 			'dotbot'             => array( 'DotBot', 'Moz', 'seo', 'https://moz.com/help/moz-procedures/crawlers/dotbot' ),
 			'rogerbot'           => array( 'rogerbot', 'Moz', 'seo', 'https://moz.com/help/moz-procedures/crawlers/rogerbot' ),
-			'blexbot'            => array( 'BLEXBot', 'WebMeUp', 'seo', 'https://webmeup-crawler.com/' ),
-			'barkrowler'         => array( 'Barkrowler', 'Babbar', 'seo', 'https://babbar.tech/blog/babbar-crawler-barkrowler/' ),
+			'blexbot'            => array( 'BLEXBot', 'WebMeUp', 'seo', 'https://knownagents.com/agents/blexbot' ),
+			'barkrowler'         => array( 'Barkrowler', 'Babbar', 'seo', 'https://www.babbar.tech/crawler' ),
 
 			// — Search engines outside the protected set (regional / vertical). —
 			'petalbot'           => array( 'PetalBot', 'Huawei (Petal)', 'search', 'https://aspiegel.com/petalbot' ),
