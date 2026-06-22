@@ -9,6 +9,7 @@
 /.distignore
 /.editorconfig
 /.wordpress-org
+/.dev
 /node_modules
 /vendor
 /tests
