@@ -31,6 +31,7 @@ final class Endpoints {
 		// Late, so link_headers() can see — and avoid duplicating — Link headers a
 		// theme already emitted this request (zero-config de-dupe).
 		add_action( 'send_headers', array( $this, 'link_headers' ), 99 );
+		add_action( 'send_headers', array( $this, 'ai_signal_headers' ), 99 );
 		add_filter( 'robots_txt', array( $this, 'robots_txt' ), 20, 2 );
 		// Re-warm the heavy full-text edition out-of-band after content changes.
 		add_action( 'agentimus_cache_flushed', array( $this, 'schedule_warm' ) );
@@ -329,6 +330,73 @@ final class Endpoints {
 			$yn( isset( $signal['ai_input'] ) ? $signal['ai_input'] : false ),
 			$yn( isset( $signal['ai_train'] ) ? $signal['ai_train'] : false )
 		);
+	}
+
+	/* ---------------------------------------------------------------------- *
+	 *  AI-usage signals (TDM Reservation Protocol headers)
+	 * ---------------------------------------------------------------------- */
+
+	/**
+	 * The AI-usage reservation, as a PURE decision so it can be unit-tested
+	 * without touching headers. The site reserves its content from AI training
+	 * when content_signal.ai_train is off ("ai-train=no"); when training is
+	 * allowed there is nothing to reserve, so no header/file is published (the
+	 * web default — absence of a signal — already means "allowed").
+	 *
+	 * @return array{reserved:bool,policy:string}
+	 */
+	public function tdmrep_state() {
+		$signal = (array) $this->settings->get( 'content_signal', array() );
+		return array(
+			'reserved' => empty( $signal['ai_train'] ), // ai-train=no → reserved.
+			'policy'   => trim( (string) $this->settings->get( 'tdm_policy_url', '' ) ),
+		);
+	}
+
+	/**
+	 * Emit the AI-usage reservation as response headers on normal content pages:
+	 * the W3C TDM Reservation Protocol `tdm-reservation` header (plus an optional
+	 * `tdm-policy`), and — when opted in — the non-standard-but-widely-honoured
+	 * `X-Robots-Tag: noai, noimageai`. This reaches bots that never read robots.txt.
+	 *
+	 * Scope: skips admin/REST and our own "please read me" surfaces (llms.txt,
+	 * markdown, /.well-known, robots.txt, feeds) — marking those reserved would
+	 * contradict the invitation to ingest them. Because send_headers fires before
+	 * the query is resolved, the surfaces are matched on the request path, not
+	 * conditional tags.
+	 *
+	 * Emitted only when reserved (training blocked): the web default is "not
+	 * reserved", so an "allow" site never stamps a header on every page. The same
+	 * value is sent to every client, so it stays edge-cacheable (no Vary).
+	 */
+	public function ai_signal_headers() {
+		if ( is_admin() || ( defined( 'REST_REQUEST' ) && REST_REQUEST ) || headers_sent() ) {
+			return;
+		}
+		if ( ! $this->settings->enabled( 'enable_ai_header' ) ) {
+			return;
+		}
+
+		$uri  = isset( $_SERVER['REQUEST_URI'] ) ? (string) wp_unslash( $_SERVER['REQUEST_URI'] ) : '/';
+		$path = strtolower( (string) wp_parse_url( $uri, PHP_URL_PATH ) );
+		if ( '/llms.txt' === $path || '/llms-full.txt' === $path || '/robots.txt' === $path
+			|| '.md' === substr( $path, -3 ) || 0 === strpos( $path, '/.well-known/' )
+			|| false !== strpos( $path, '/feed' ) ) {
+			return;
+		}
+
+		$state = $this->tdmrep_state();
+		if ( empty( $state['reserved'] ) ) {
+			return; // Training allowed → emit nothing (silence == not reserved).
+		}
+
+		header( 'tdm-reservation: 1' );
+		if ( '' !== $state['policy'] ) {
+			header( 'tdm-policy: ' . $state['policy'] );
+		}
+		if ( $this->settings->enabled( 'ai_noai_header' ) ) {
+			header( 'X-Robots-Tag: noai, noimageai', false ); // Append — never clobber an existing X-Robots-Tag.
+		}
 	}
 
 	/* ---------------------------------------------------------------------- *

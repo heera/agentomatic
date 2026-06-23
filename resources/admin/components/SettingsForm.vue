@@ -146,6 +146,23 @@ export default {
       const yn = (v) => (v ? 'yes' : 'no');
       return `Content-Signal: search=${yn(this.signal.search)}, ai-input=${yn(this.signal.ai_input)}, ai-train=${yn(this.signal.ai_train)}`;
     },
+    // The same ai-train decision, broadcast beyond robots.txt.
+    reservedSignal() {
+      return !this.signal.ai_train; // ai-train=no → content is reserved (opting out).
+    },
+    tdmrepUrl() {
+      // /.well-known is always domain-root-relative (RFC 8615), regardless of any
+      // WordPress subdirectory, so origin + path is correct everywhere.
+      return window.location.origin + '/.well-known/tdmrep.json';
+    },
+    // One plain sentence describing where the opt-out is published, reflecting
+    // which standardized channels are enabled. Only shown when reserving.
+    channelsSummary() {
+      if (!this.settings.enable_ai_header && !this.settings.enable_tdmrep) {
+        return 'robots.txt is only a request a crawler can ignore. Turn on a channel below to also publish your choice as a standardized signal that’s harder to skip.';
+      }
+      return 'robots.txt is only a request a crawler can ignore — so your “no AI training” choice also goes out in the standardized signals below, which are harder for a bot to skip.';
+    },
     isOrg() {
       return this.identity.entity_type !== 'Person';
     },
@@ -469,7 +486,7 @@ export default {
     </section>
 
     <!-- Crawler policy ------------------------------------------------- -->
-    <section class="ar-card">
+    <section id="ar-sec-ai" class="ar-card">
       <h2 class="ar-card__title">Crawler policy</h2>
       <p class="ar-card__lead">
         Decide what AI assistants may do with your content. Search and citation stay on by default;
@@ -522,6 +539,74 @@ export default {
             <button v-if="!isDefaultTrainers" type="button" class="ar-linkbtn" @click="resetTrainers">Reset to defaults</button>
           </small>
         </div>
+      </div>
+
+      <!-- Opt-out channels — only relevant when reserving (training blocked) -->
+      <div class="ar-field">
+        <div v-if="reservedSignal" class="ar-channels-panel">
+          <div class="ar-channels-panel__head">
+            Published beyond robots.txt <span class="ar-field__tag">stronger signals</span>
+          </div>
+          <p class="ar-channels-panel__lead">{{ channelsSummary }}</p>
+          <p class="ar-channels-panel__note">
+            The opt-out file is site-wide — it can’t block individual bots. Per-bot blocks live in the
+            crawler list above (robots.txt), and in scanner blocking below for a hard 403.
+          </p>
+
+          <details>
+            <summary class="ar-linkbtn">Publishing channels</summary>
+            <p class="ar-field__hint">
+              Each channel states the same “no AI training” choice in a different place. They’re on by
+              default — turn one off only if you don’t want to publish through that channel.
+            </p>
+
+            <label class="ar-toggle">
+              <input v-model="settings.enable_ai_header" type="checkbox" />
+              <span class="ar-toggle__track" aria-hidden="true"></span>
+              <span class="ar-toggle__text">
+                <strong>Response header</strong>
+                <small>Attaches an invisible “do not train” tag to every page your site serves, so an AI crawler gets the signal directly — even if it never reads your robots.txt.</small>
+              </span>
+            </label>
+
+            <label class="ar-toggle">
+              <input v-model="settings.enable_tdmrep" type="checkbox" />
+              <span class="ar-toggle__track" aria-hidden="true"></span>
+              <span class="ar-toggle__text">
+                <strong>Opt-out file</strong>
+                <small>Publishes a small standard file that formally declares your content off-limits for AI training — the machine-readable format AI companies check, and the one that lines up with EU text-and-data-mining rules. <a :href="tdmrepUrl" target="_blank" rel="noopener">View the file</a>.</small>
+              </span>
+            </label>
+
+            <label class="ar-toggle">
+              <input v-model="settings.ai_noai_header" type="checkbox" />
+              <span class="ar-toggle__track" aria-hidden="true"></span>
+              <span class="ar-toggle__text">
+                <strong>Also send a “noai” header</strong>
+                <small>An extra page header asking AI tools not to use your text or images. It isn’t an official standard — only some platforms honor it — so treat it as a harmless bonus signal on top of the two above.</small>
+              </span>
+            </label>
+
+            <div class="ar-field">
+              <label for="ar-tdm-policy">AI-usage policy URL <span class="ar-field__tag">optional</span></label>
+              <input id="ar-tdm-policy" v-model="settings.tdm_policy_url" type="url" class="ar-input" placeholder="https://example.com/ai-policy" />
+              <small class="ar-field__hint">
+                A link to your own page spelling out your AI terms — e.g. “training allowed only with a
+                licence; email us.” When set, the header and opt-out file point AI companies to it so they
+                know your conditions or how to ask permission. Leave it blank for a plain “no” — your
+                opt-out still works exactly the same without it.
+              </small>
+            </div>
+          </details>
+        </div>
+
+        <p v-else class="ar-card__note">
+          AI training is allowed, so no opt-out signals are published — on the web, no signal already
+          means “allowed”. To opt out, turn off <strong>Allow AI training</strong> above: that publishes a
+          no-training signal in robots.txt, a response header, and <code>/.well-known/tdmrep.json</code> at
+          once. To keep specific crawlers out while staying open, list them under
+          <strong>Block specific crawlers</strong> above.
+        </p>
       </div>
     </section>
 

@@ -10,6 +10,7 @@ defined( 'WP_UNINSTALL_PLUGIN' ) || exit;
 delete_option( 'agentimus_settings' );
 delete_option( 'agentimus_onboarded' );
 delete_option( 'agentimus_signing_keys' );
+delete_option( 'agentimus_rewrite_version' );
 delete_transient( 'agentimus_llms_txt' );
 delete_transient( 'agentimus_llms_full' );
 delete_transient( 'agentimus' );

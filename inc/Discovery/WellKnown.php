@@ -69,7 +69,7 @@ final class WellKnown {
 		// canonical redirect resolves it to the homepage (a 200, not a 404). So
 		// security.txt etc. are intentionally absent — a provider that serves one
 		// adds its name here via the `agentimus_well_known_routed` filter.
-		$names = array( 'discovery.json', 'agent-card.json', 'agent.json', 'mcp.json', 'api-catalog', 'oauth-protected-resource', Signer::DIRECTORY );
+		$names = array( 'discovery.json', 'agent-card.json', 'agent.json', 'mcp.json', 'api-catalog', 'oauth-protected-resource', 'tdmrep.json', Signer::DIRECTORY );
 
 		/**
 		 * Filter the /.well-known names routed to WordPress by an explicit rule.
@@ -214,6 +214,13 @@ final class WellKnown {
 				$directory = $this->signer->directory();
 				if ( '' !== $directory ) {
 					$this->send( $directory, 'application/json', Signer::DIRECTORY );
+				}
+				break;
+			case 'tdmrep.json':
+				// TDM Reservation Protocol opt-out file — gated off => empty => 404.
+				$tdmrep = ( new \Agentimus\Tdmrep( $this->settings ) )->json();
+				if ( '' !== $tdmrep ) {
+					$this->send( $tdmrep, 'application/json', 'tdmrep.json' );
 				}
 				break;
 		}

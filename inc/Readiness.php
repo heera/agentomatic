@@ -41,6 +41,7 @@ final class Readiness {
 			$this->check_security_txt(),
 			$this->check_schema_conflict(),
 			$this->check_static_robots(),
+			$this->check_ai_usage_policy(),
 			$this->check_sitemap(),
 			$this->check_robots_sitemap(),
 		);
@@ -344,6 +345,54 @@ final class Readiness {
 				__( 'Delete robots.txt from your site root to let Agentimus serve a managed virtual one — or, if you maintain it by hand, add your crawler and Sitemap directives there yourself.', 'agentimus' )
 			)
 			: $this->row( 'robots', __( 'robots.txt control', 'agentimus' ), 'pass', __( 'WordPress serves a virtual robots.txt that this plugin manages.', 'agentimus' ) );
+	}
+
+	private function check_ai_usage_policy() {
+		$signal   = (array) $this->settings->get( 'content_signal', array() );
+		$reserved = empty( $signal['ai_train'] );
+		$header   = $this->settings->enabled( 'enable_ai_header' );
+		$tdmrep   = $this->settings->enabled( 'enable_tdmrep' );
+
+		// Training allowed → nothing to reserve; informational pass.
+		if ( ! $reserved ) {
+			return $this->row(
+				'ai_usage',
+				__( 'AI usage policy', 'agentimus' ),
+				'pass',
+				__( 'AI training is allowed, so no reservation is published. Specific crawlers can still be blocked by name.', 'agentimus' )
+			);
+		}
+
+		// Reserved AND backed by at least one enforceable signal beyond robots.txt.
+		if ( $header || $tdmrep ) {
+			$where = array();
+			if ( $header ) {
+				$where[] = __( 'a tdm-reservation response header', 'agentimus' );
+			}
+			if ( $tdmrep ) {
+				$where[] = __( '/.well-known/tdmrep.json', 'agentimus' );
+			}
+			return $this->row(
+				'ai_usage',
+				__( 'AI usage policy', 'agentimus' ),
+				'pass',
+				sprintf(
+					/* translators: %s: human list of the published signals, e.g. "a tdm-reservation response header and /.well-known/tdmrep.json". */
+					__( 'Your no-AI-training preference is published as %s — standardized signals, not just an advisory robots.txt line.', 'agentimus' ),
+					implode( __( ' and ', 'agentimus' ), $where )
+				)
+			);
+		}
+
+		// Reserved, but only advisory robots.txt is carrying it.
+		return $this->row(
+			'ai_usage',
+			__( 'AI usage policy', 'agentimus' ),
+			'warn',
+			__( 'You ask AI not to train on your content, but only in robots.txt — which a crawler can ignore.', 'agentimus' ),
+			__( 'Turn on the tdm-reservation header and /.well-known/tdmrep.json under Settings → Crawler policy so your preference is published as standardized, harder-to-ignore signals.', 'agentimus' ),
+			$this->nav( __( 'Enable AI signals', 'agentimus' ), 'ar-sec-ai' )
+		);
 	}
 
 	private function check_sitemap() {

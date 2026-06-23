@@ -62,6 +62,15 @@ final class Settings {
 				'ai_train' => false,
 			),
 			'blocked_trainers' => self::known_trainers(),
+			// AI-usage signals beyond robots.txt: publish the SAME ai-train decision
+			// where robots.txt can't reach — a W3C TDM Reservation Protocol response
+			// header and /.well-known/tdmrep.json. On by default so the existing
+			// "no AI training" default stance is asserted in every channel, not just
+			// the advisory one ("one decision, every channel").
+			'enable_ai_header'    => true,  // tdm-reservation header on content pages (only when training is blocked).
+			'enable_tdmrep'       => true,  // serve /.well-known/tdmrep.json (only when training is blocked).
+			'ai_noai_header'      => false, // also send the non-standard X-Robots-Tag: noai (best-effort).
+			'tdm_policy_url'      => '',     // optional URL to the owner's TDM / AI-usage policy.
 			// Optional HARD enforcement (opt-in). robots.txt above is advisory; this
 			// actually refuses the request with a 403. Off by default so a fresh
 			// install never silently blocks anyone.
@@ -443,6 +452,15 @@ final class Settings {
 
 		$trainers                 = isset( $input['blocked_trainers'] ) ? $input['blocked_trainers'] : $defaults['blocked_trainers'];
 		$clean['blocked_trainers'] = $this->sanitize_list( $trainers, 'sanitize_text_field' );
+
+		// AI-usage signal channels. The two default-ON channels use the isset-guard
+		// (like block_spoofed) so a partial programmatic update that omits the key
+		// keeps the default rather than silently going dark; the default-OFF extras
+		// are a plain ! empty().
+		$clean['enable_ai_header'] = ! isset( $input['enable_ai_header'] ) ? $defaults['enable_ai_header'] : ! empty( $input['enable_ai_header'] );
+		$clean['enable_tdmrep']    = ! isset( $input['enable_tdmrep'] ) ? $defaults['enable_tdmrep'] : ! empty( $input['enable_tdmrep'] );
+		$clean['ai_noai_header']   = ! empty( $input['ai_noai_header'] );
+		$clean['tdm_policy_url']    = isset( $input['tdm_policy_url'] ) ? esc_url_raw( (string) $input['tdm_policy_url'] ) : '';
 
 		// Optional hard-block enforcement. block_spoofed defaults true and is only
 		// flipped off by an explicit false, so a client that omits the key (e.g. a

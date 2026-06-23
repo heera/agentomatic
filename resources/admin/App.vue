@@ -90,6 +90,8 @@ export default {
         llms_full_posts: s.llms_full_posts, post_types: s.post_types,
         rest_namespaces: s.rest_namespaces, oauth_auth_server: s.oauth_auth_server, content_signal: s.content_signal,
         blocked_trainers: s.blocked_trainers, suppressed_resources: s.suppressed_resources,
+        enable_ai_header: s.enable_ai_header, enable_tdmrep: s.enable_tdmrep,
+        ai_noai_header: s.ai_noai_header, tdm_policy_url: s.tdm_policy_url,
         block_agents: s.block_agents, block_spoofed: s.block_spoofed, blocked_agents: s.blocked_agents, allowed_agents: s.allowed_agents,
         security: s.security,
         expertise: id.expertise, same_as: id.same_as,

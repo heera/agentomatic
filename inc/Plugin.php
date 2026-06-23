@@ -57,6 +57,12 @@ final class Plugin {
 		( new Discovery\Module( $this->settings ) )->register();
 		( new Activity\Module( $this->settings ) )->register();
 
+		// After an update that adds a new /.well-known name (e.g. tdmrep.json),
+		// flush the rewrite rules once so it resolves without re-activation. Runs
+		// after WellKnown::add_rules() (init, default priority) and no-ops as soon
+		// as the stored rewrite version matches.
+		add_action( 'init', array( self::class, 'maybe_flush_rewrites' ), 20 );
+
 		/**
 		 * Fires after Agentimus has booted. The seam a Pro add-on hooks to
 		 * register its own features against the shared Settings instance.
@@ -83,7 +89,22 @@ final class Plugin {
 		Activity\Module::schedule();
 		Discovery\WellKnown::add_rules();
 		flush_rewrite_rules();
+		update_option( 'agentimus_rewrite_version', AGENTIMUS_VERSION ); // Activation already flushed — don't re-flush on the next request.
 		self::seed_onboarding_state( $had_settings );
+	}
+
+	/**
+	 * One-time rewrite flush after a plugin update introduces a new routed
+	 * /.well-known name. Compares a stored version marker against the running
+	 * version and flushes (then records) exactly once. Hooked late on `init`, so
+	 * WellKnown::add_rules() has already registered the current rule set.
+	 */
+	public static function maybe_flush_rewrites() {
+		if ( AGENTIMUS_VERSION === get_option( 'agentimus_rewrite_version' ) ) {
+			return;
+		}
+		flush_rewrite_rules();
+		update_option( 'agentimus_rewrite_version', AGENTIMUS_VERSION );
 	}
 
 	/**

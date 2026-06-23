@@ -431,6 +431,26 @@
 }
 .ar-card__note strong { color: var(--ar-ink-soft); font-weight: 600; }
 .ar-card__note code { font-size: 11px; }
+/* Grouped panel for the AI opt-out channels published beyond robots.txt:
+   a quiet inset card so the eyebrow + explainer + channel toggles read as one
+   intentional unit rather than loose lines on the card. */
+.ar-channels-panel {
+  margin-top: 18px;
+  padding: 15px 18px 16px;
+  background: var(--ar-surface-2);
+  border: 1px solid var(--ar-line);
+  border-radius: var(--ar-radius);
+}
+.ar-channels-panel__head {
+  display: flex; align-items: center; gap: 9px; margin-bottom: 9px;
+  font-family: var(--ar-mono); font-size: 11px; font-weight: 600;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--ar-ink-soft);
+}
+.ar-channels-panel__head .ar-field__tag { margin: 0; }
+.ar-channels-panel__lead { margin: 0; color: var(--ar-ink-soft); font-size: 13px; line-height: 1.55; }
+.ar-channels-panel__note { margin: 9px 0 0; color: var(--ar-ink-faint); font-size: 12px; line-height: 1.5; }
+.ar-channels-panel details { margin-top: 14px; padding-top: 13px; border-top: 1px solid var(--ar-line); }
+
 /* Small scope chip next to a card title, e.g. "Last 30 days". */
 .ar-card__tag {
   font-family: var(--ar-mono); font-size: 9.5px; letter-spacing: 0.08em; text-transform: uppercase;
