@@ -80,6 +80,7 @@ final class Repository {
 			'daily'      => self::daily(),
 			'recent'     => self::recent( 50 ),
 			'threats'    => self::threats( $settings ),
+			'referrals'  => Referrals::summary( $window ),
 		);
 	}
 

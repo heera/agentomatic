@@ -45,6 +45,20 @@ export default {
     byEndpoint() {
       return this.data.byEndpoint || [];
     },
+    // Traffic AI sent you (humans arriving from ChatGPT/Perplexity/… — the mirror
+    // of the bot log above).
+    referrals() {
+      return this.data.referrals || null;
+    },
+    refTotals() {
+      return (this.referrals && this.referrals.totals) || { today: 0, window: 0 };
+    },
+    refSources() {
+      return (this.referrals && this.referrals.bySource) || [];
+    },
+    refPages() {
+      return (this.referrals && this.referrals.topPages) || [];
+    },
     recent() {
       return this.data.recent || [];
     },
@@ -402,6 +416,51 @@ export default {
             </li>
           </ul>
           <p v-else class="ar-wd-empty">No hits yet.</p>
+        </section>
+      </div>
+
+      <!-- Traffic from AI: overview (mirrors the Endpoint-activity overview) -->
+      <section v-if="referrals" class="ar-card">
+        <h2 class="ar-card__title">Traffic from AI <span class="ar-card__tag">Last {{ data.window || 30 }} days</span></h2>
+        <p class="ar-card__lead">
+          Real visitors who arrived from an AI assistant (ChatGPT, Perplexity, Gemini…). Counted on your
+          own site — no IP, nothing sent anywhere. Some AI visits can’t be detected, so read this as a
+          floor: at least this many.
+        </p>
+        <div class="ar-wd-stats ar-act-stats">
+          <div class="ar-wd-stat"><strong>{{ refTotals.today }}</strong><span>today</span></div>
+          <div class="ar-wd-stat"><strong>{{ refTotals.window }}</strong><span>{{ data.window || 30 }} days</span></div>
+          <div class="ar-wd-stat"><strong>{{ refSources.length }}</strong><span>sources</span></div>
+        </div>
+        <p v-if="!refTotals.window" class="ar-wd-empty">
+          No AI-referred visits recorded yet. When someone arrives from ChatGPT, Perplexity and the like,
+          it’ll show here.
+        </p>
+      </section>
+
+      <!-- Traffic from AI: breakdown (mirrors Top clients / By endpoint) -->
+      <div v-if="referrals && refTotals.window" class="ar-wd-cols">
+        <section class="ar-card">
+          <h2 class="ar-card__title">AI sources <span class="ar-card__tag">Last {{ data.window || 30 }} days</span></h2>
+          <ul class="ar-act-rank">
+            <li v-for="s in refSources" :key="s.label">
+              <span class="ar-act-rank__label">{{ s.label }}</span>
+              <span class="ar-act-rank__track"><span class="ar-act-rank__bar" :style="{ width: pct(s.hits, listMax(refSources)) }"></span></span>
+              <span class="ar-act-rank__n">{{ s.hits }}</span>
+            </li>
+          </ul>
+        </section>
+
+        <section class="ar-card">
+          <h2 class="ar-card__title">Top landing pages <span class="ar-card__tag">Last {{ data.window || 30 }} days</span></h2>
+          <ul v-if="refPages.length" class="ar-act-rank">
+            <li v-for="p in refPages" :key="p.path">
+              <span class="ar-act-rank__label"><code>{{ p.path }}</code></span>
+              <span class="ar-act-rank__track"><span class="ar-act-rank__bar" :style="{ width: pct(p.hits, listMax(refPages)) }"></span></span>
+              <span class="ar-act-rank__n">{{ p.hits }}</span>
+            </li>
+          </ul>
+          <p v-else class="ar-wd-empty">No pages yet.</p>
         </section>
       </div>
 

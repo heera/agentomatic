@@ -33,8 +33,12 @@ final class Module {
 	 */
 	public function register() {
 		Table::maybe_install();
+		Referrals::maybe_install();
+		// Count human visits referred from AI assistants (the mirror of the bot log).
+		add_action( 'template_redirect', array( Referrals::class, 'maybe_record' ), 30 );
 		add_action( 'rest_api_init', array( $this, 'routes' ) );
 		add_action( self::CRON, array( Repository::class, 'prune' ) );
+		add_action( self::CRON, array( Referrals::class, 'prune' ) );
 	}
 
 	/**

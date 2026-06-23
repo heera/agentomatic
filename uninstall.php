@@ -19,6 +19,8 @@ delete_transient( 'agentimus_activation_redirect' );
 // Activity log: drop the table, version flag and prune schedule.
 global $wpdb;
 $wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}agentimus_agent_hits" ); // phpcs:ignore WordPress.DB
+$wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}agentimus_ai_referrals" ); // phpcs:ignore WordPress.DB
 delete_option( 'agentimus_activity_db_version' );
+delete_option( 'agentimus_referrals_db_version' );
 wp_clear_scheduled_hook( 'agentimus_prune_activity' );
 wp_clear_scheduled_hook( 'agentimus_warm_llms_full' );

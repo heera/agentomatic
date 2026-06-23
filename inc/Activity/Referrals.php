@@ -1,0 +1,330 @@
+<?php
+/**
+ * Referrals — count real human visits that arrive FROM an AI assistant
+ * (ChatGPT, Perplexity, Gemini, …). The mirror of {@see Recorder}, which logs
+ * bots TAKING content; this is the "giving back" side: is AI sending you readers?
+ *
+ * First-party and AGGREGATE-ONLY: we keep a per-day count per (source, landing
+ * path) and DELIBERATELY no IP, no User-Agent, no query string — so no stored row
+ * ever represents a person. Detection reads two signals already on the request
+ * (the Referer host and the utm_source tag AI tools stamp on their links); there
+ * are no outbound calls.
+ *
+ * Gated by the same `enable_activity` flag as the rest of the activity log — it's
+ * one feature, two directions.
+ *
+ * @package Agentimus
+ */
+
+namespace Agentimus\Activity;
+
+use Agentimus\Settings;
+
+defined( 'ABSPATH' ) || exit;
+
+final class Referrals {
+
+	/** Bump when the schema changes to trigger a dbDelta upgrade. */
+	const VERSION        = '1';
+	const VERSION_OPTION = 'agentimus_referrals_db_version';
+
+	/** @var bool|null Per-request cache of the enable flag. */
+	private static $enabled = null;
+
+	/**
+	 * Fully-qualified table name (site-prefixed).
+	 *
+	 * @return string
+	 */
+	public static function name() {
+		global $wpdb;
+		return $wpdb->prefix . 'agentimus_ai_referrals';
+	}
+
+	/* ---------------------------------------------------------------------- *
+	 *  Detection
+	 * ---------------------------------------------------------------------- */
+
+	/**
+	 * Known AI-assistant sources: a referrer host OR a utm_source value (lowercased,
+	 * www-stripped) maps to a canonical label. Filterable so a site can add its own.
+	 *
+	 * Google "AI Overviews" is intentionally absent — it arrives with a plain
+	 * google.com referrer, indistinguishable from normal search, so counting it
+	 * would be guesswork.
+	 *
+	 * @return array<string,string> needle => label.
+	 */
+	public static function sources() {
+		$map = array(
+			'chatgpt.com'           => 'ChatGPT',
+			'chat.openai.com'       => 'ChatGPT',
+			'perplexity.ai'         => 'Perplexity',
+			'gemini.google.com'     => 'Gemini',
+			'bard.google.com'       => 'Gemini',
+			'copilot.microsoft.com' => 'Copilot',
+			'claude.ai'             => 'Claude',
+			'you.com'               => 'You.com',
+			'poe.com'               => 'Poe',
+		);
+
+		/**
+		 * Filter the AI-referral source map (needle => label). Needles are matched
+		 * against the referrer host and the utm_source value, both lowercased.
+		 *
+		 * @param array<string,string> $map Source map.
+		 */
+		return (array) apply_filters( 'agentimus_ai_referral_sources', $map );
+	}
+
+	/**
+	 * Resolve the AI source for a request from its referrer + utm_source, or '' if
+	 * none. PURE — no WordPress query state, no DB — so it unit-tests directly.
+	 *
+	 * @param string $referer Raw Referer header.
+	 * @param string $utm     Raw utm_source value.
+	 * @return string Canonical label, or '' when not an AI source.
+	 */
+	public static function source_for( $referer, $utm ) {
+		$map = self::sources();
+
+		// 1. Referrer host (covers Perplexity, Gemini, Claude, … which pass it).
+		$host = strtolower( (string) wp_parse_url( (string) $referer, PHP_URL_HOST ) );
+		$host = preg_replace( '/^www\./', '', $host );
+		if ( '' !== $host ) {
+			foreach ( $map as $needle => $label ) {
+				$n = preg_replace( '/^www\./', '', strtolower( (string) $needle ) );
+				if ( '' !== $n && ( $host === $n || self::is_subdomain_of( $host, $n ) ) ) {
+					return $label;
+				}
+			}
+		}
+
+		// 2. utm_source tag (covers ChatGPT, which stamps utm_source=chatgpt.com,
+		// so it's caught even when the referrer is stripped).
+		$utm = preg_replace( '/^www\./', '', strtolower( trim( (string) $utm ) ) );
+		if ( '' !== $utm && isset( $map[ $utm ] ) ) {
+			return $map[ $utm ];
+		}
+
+		return '';
+	}
+
+	/**
+	 * Whether $host is a subdomain of $domain (e.g. x.chatgpt.com of chatgpt.com).
+	 *
+	 * @param string $host   Lowercased host.
+	 * @param string $domain Lowercased domain.
+	 * @return bool
+	 */
+	private static function is_subdomain_of( $host, $domain ) {
+		$suffix = '.' . $domain;
+		return strlen( $host ) > strlen( $suffix ) && substr( $host, -strlen( $suffix ) ) === $suffix;
+	}
+
+	/* ---------------------------------------------------------------------- *
+	 *  Recording
+	 * ---------------------------------------------------------------------- */
+
+	/**
+	 * On a front-end content view, record a +1 for the AI source — if there is one.
+	 * Hooked on template_redirect; bails fast (no DB touch) on everything that
+	 * isn't a human page view referred from a known AI assistant.
+	 */
+	public static function maybe_record() {
+		if ( ! self::enabled() ) {
+			return;
+		}
+		if ( is_admin() || ( defined( 'REST_REQUEST' ) && REST_REQUEST ) || ( defined( 'DOING_AJAX' ) && DOING_AJAX ) ) {
+			return;
+		}
+
+		$method = isset( $_SERVER['REQUEST_METHOD'] ) ? strtoupper( sanitize_text_field( wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) ) : 'GET';
+		if ( 'GET' !== $method ) {
+			return;
+		}
+		if ( is_feed() || is_404() || is_trackback() || is_robots() ) {
+			return;
+		}
+
+		// Skip the owner browsing their own site (shares Recorder's filter).
+		if ( apply_filters( 'agentimus_activity_skip_self', is_user_logged_in() && current_user_can( 'manage_options' ) ) ) {
+			return;
+		}
+
+		$referer = isset( $_SERVER['HTTP_REFERER'] ) ? wp_unslash( $_SERVER['HTTP_REFERER'] ) : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized,WordPress.Security.NonceVerification.Recommended -- only its host is parsed + matched against a fixed list, never stored or output.
+		$utm     = isset( $_GET['utm_source'] ) ? wp_unslash( $_GET['utm_source'] ) : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized,WordPress.Security.NonceVerification.Recommended -- matched against a fixed list, never stored or output.
+		if ( '' === $referer && '' === $utm ) {
+			return; // No source signal at all → cheapest exit (direct visits, most internal nav).
+		}
+
+		$source = self::source_for( (string) $referer, (string) $utm );
+		if ( '' === $source ) {
+			return; // Has a referrer/utm, but not from a known AI source.
+		}
+
+		// Count only human browsers — a bot arriving with a referrer isn't a
+		// "visitor AI sent". (A real reader clicking from an AI answer uses a browser.)
+		$ua = isset( $_SERVER['HTTP_USER_AGENT'] ) ? sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only classification.
+		if ( 'Browser' !== Classifier::classify( $ua ) ) {
+			return;
+		}
+
+		self::increment( $source, self::current_path() );
+	}
+
+	/**
+	 * The request path, query string stripped (no UTM/PII stored) and length-capped.
+	 *
+	 * @return string
+	 */
+	private static function current_path() {
+		$uri  = isset( $_SERVER['REQUEST_URI'] ) ? wp_unslash( $_SERVER['REQUEST_URI'] ) : '/'; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- path is parsed out below; query (UTM) is discarded.
+		$path = (string) wp_parse_url( (string) $uri, PHP_URL_PATH );
+		if ( '' === $path ) {
+			$path = '/';
+		}
+		return substr( $path, 0, 190 );
+	}
+
+	/**
+	 * Increment the daily counter for (today UTC, source, path).
+	 *
+	 * @param string $source Canonical AI source label.
+	 * @param string $path   Landing path.
+	 */
+	private static function increment( $source, $path ) {
+		global $wpdb;
+		$table = self::name();
+		$wpdb->query( // phpcs:ignore WordPress.DB, PluginCheck.Security.DirectDB.UnescapedDBParameter -- $table is our own prefix-derived name; values are bound via prepare().
+			$wpdb->prepare(
+				"INSERT INTO $table (day, source, path, hits) VALUES (%s, %s, %s, 1) ON DUPLICATE KEY UPDATE hits = hits + 1",
+				gmdate( 'Y-m-d' ),
+				substr( $source, 0, 40 ),
+				$path
+			)
+		);
+	}
+
+	/**
+	 * Whether activity logging (which includes referrals) is on (cached per request).
+	 *
+	 * @return bool
+	 */
+	private static function enabled() {
+		if ( null === self::$enabled ) {
+			self::$enabled = (bool) ( new Settings() )->enabled( 'enable_activity' );
+		}
+		return self::$enabled;
+	}
+
+	/* ---------------------------------------------------------------------- *
+	 *  Read (dashboard)
+	 * ---------------------------------------------------------------------- */
+
+	/**
+	 * Dashboard payload: totals (today / window), top sources, and top landing
+	 * pages over the reporting window.
+	 *
+	 * @param int $window Reporting window in days (matches the activity log).
+	 * @return array{enabled:bool,totals:array{today:int,window:int},bySource:array,topPages:array}
+	 */
+	public static function summary( $window ) {
+		global $wpdb;
+		$table  = self::name();
+		$window = max( 1, (int) $window );
+		$since  = gmdate( 'Y-m-d', time() - $window * DAY_IN_SECONDS );
+		$today  = gmdate( 'Y-m-d' );
+
+		// phpcs:disable WordPress.DB, PluginCheck.Security.DirectDB.UnescapedDBParameter -- $table is our own prefix-derived name; all values are bound via prepare().
+		$today_count  = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COALESCE(SUM(hits),0) FROM $table WHERE day = %s", $today ) );
+		$window_count = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COALESCE(SUM(hits),0) FROM $table WHERE day >= %s", $since ) );
+
+		$by_source = $wpdb->get_results( $wpdb->prepare( "SELECT source AS label, SUM(hits) AS hits FROM $table WHERE day >= %s GROUP BY source ORDER BY hits DESC LIMIT 8", $since ), ARRAY_A );
+		$top_pages = $wpdb->get_results( $wpdb->prepare( "SELECT path, SUM(hits) AS hits FROM $table WHERE day >= %s GROUP BY path ORDER BY hits DESC LIMIT 8", $since ), ARRAY_A );
+		// phpcs:enable WordPress.DB, PluginCheck.Security.DirectDB.UnescapedDBParameter
+
+		return array(
+			'enabled'  => true,
+			'totals'   => array(
+				'today'  => $today_count,
+				'window' => $window_count,
+			),
+			'bySource' => array_map(
+				static function ( $r ) {
+					return array( 'label' => (string) $r['label'], 'hits' => (int) $r['hits'] );
+				},
+				(array) $by_source
+			),
+			'topPages' => array_map(
+				static function ( $r ) {
+					return array( 'path' => (string) $r['path'], 'hits' => (int) $r['hits'] );
+				},
+				(array) $top_pages
+			),
+		);
+	}
+
+	/* ---------------------------------------------------------------------- *
+	 *  Maintenance
+	 * ---------------------------------------------------------------------- */
+
+	/**
+	 * Drop rows older than the activity retention window. Hooked to the same daily
+	 * prune cron as the agent-hit log.
+	 */
+	public static function prune() {
+		global $wpdb;
+		$table  = self::name();
+		$days   = max( 1, (int) apply_filters( 'agentimus_activity_retention_days', Repository::WINDOW_DAYS ) );
+		$cutoff = gmdate( 'Y-m-d', time() - $days * DAY_IN_SECONDS );
+		$wpdb->query( $wpdb->prepare( "DELETE FROM $table WHERE day < %s", $cutoff ) ); // phpcs:ignore WordPress.DB, PluginCheck.Security.DirectDB.UnescapedDBParameter -- $table is our own prefix-derived name; the value is bound via prepare().
+	}
+
+	/**
+	 * Create/upgrade the table only when the stored schema version differs.
+	 */
+	public static function maybe_install() {
+		if ( get_option( self::VERSION_OPTION ) === self::VERSION ) {
+			return;
+		}
+		self::install();
+	}
+
+	/**
+	 * Create the daily-aggregate table via dbDelta. The UNIQUE KEY powers the
+	 * INSERT … ON DUPLICATE KEY upsert; the path prefix keeps it within index limits.
+	 */
+	public static function install() {
+		global $wpdb;
+		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+
+		$table   = self::name();
+		$collate = $wpdb->get_charset_collate();
+
+		// dbDelta is whitespace-sensitive: two spaces after PRIMARY KEY, lowercase types.
+		$sql = "CREATE TABLE $table (
+  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+  day date NOT NULL,
+  source varchar(40) NOT NULL DEFAULT '',
+  path varchar(190) NOT NULL DEFAULT '',
+  hits int(10) unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY  (id),
+  UNIQUE KEY uniq (day,source,path(150)),
+  KEY day (day)
+) $collate;";
+
+		dbDelta( $sql );
+		update_option( self::VERSION_OPTION, self::VERSION, false );
+	}
+
+	/**
+	 * Drop the table and forget the version (used by uninstall).
+	 */
+	public static function drop() {
+		global $wpdb;
+		$table = self::name();
+		$wpdb->query( "DROP TABLE IF EXISTS $table" ); // phpcs:ignore WordPress.DB, PluginCheck.Security.DirectDB.UnescapedDBParameter -- schema teardown; $table is our own prefix-derived name, not user input.
+		delete_option( self::VERSION_OPTION );
+	}
+}

@@ -97,7 +97,7 @@ export default {
         { key: 'enable_markdown', label: 'Plain-text versions', hint: 'Lets assistants fetch a clean text version of any page — add .md to its URL.' },
         { key: 'enable_robots', label: 'Crawler rules', hint: 'States your preferences to crawlers and blocks known AI-training bots by name. (file: robots.txt)' },
         { key: 'enable_schema', label: 'Rich data for search', hint: 'Adds structured data search engines and assistants understand (JSON-LD). Leave off if your SEO plugin already does this.' },
-        { key: 'enable_activity', label: 'Visit log', hint: 'Records which AI assistants fetch your AI files. Local-only, no IP addresses.' },
+        { key: 'enable_activity', label: 'Visit log', hint: 'Records which AI assistants fetch your AI files, and counts visitors AI sends you. Local-only, no IP addresses.' },
         { key: 'enable_sitemap', label: 'Sitemap (backup)', hint: 'Adds a sitemap only when WordPress core and your SEO plugin don’t already provide one — never duplicates.' },
         { key: 'enable_signing', label: 'Sign discovery docs', hint: 'Cryptographically sign your discovery files (Ed25519) and publish a key directory so agents can verify they came from you. Experimental (Web Bot Auth).' },
       ];

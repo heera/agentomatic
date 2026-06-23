@@ -86,6 +86,7 @@ final class Plugin {
 		self::migrate_legacy_option();
 		( new Settings() )->ensure_defaults();
 		Activity\Table::install();
+		Activity\Referrals::install();
 		Activity\Module::schedule();
 		Discovery\WellKnown::add_rules();
 		flush_rewrite_rules();

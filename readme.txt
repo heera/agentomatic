@@ -98,6 +98,10 @@ The header and file are on by default and can be toggled per channel under "Publ
 
 Yes — list them under **Block specific crawlers**. That writes a per-name `Disallow: /` to robots.txt for each. The `/.well-known/tdmrep.json` opt-out file and the `tdm-reservation` header are **site-wide** — the standard has no per-bot dial — so per-bot blocking lives in robots.txt (and in scanner blocking for a hard 403), while the file and header carry your overall site-wide choice. (Those site-wide signals are published only when you block AI training; an open site publishes none.)
 
+= Can I see if AI is sending me visitors? =
+
+Yes — the dashboard's "Traffic from AI" card counts real people who landed on your site from an AI assistant (ChatGPT, Perplexity, Gemini, …), detected from the visit's referrer and the `utm_source` tag some AI tools add to their links. It's the mirror of the activity log: that shows bots *reading* your content; this shows AI *bringing you readers*, with a by-source and top-landing-pages breakdown. Like the rest of the log it's first-party and aggregate-only — no IP, no per-visitor records, nothing sent anywhere. Some AI visits can't be detected (stripped referrers, Google's AI Overviews, cached pages), so read the figure as a floor: at least this many.
+
 = Will it slow my site down? =
 
 No. The text endpoints are cached and CDN-friendly; there is no front-end JavaScript or CSS. The admin app loads only on the plugin's own screen.
@@ -144,6 +148,7 @@ There is no minified-only code. The admin interface is built from Vue 3 source i
 * Optional extras under Crawler policy: the non-standard `X-Robots-Tag: noai, noimageai` header (off by default) and an AI-usage policy URL surfaced as `tdm-policy`.
 * New readiness check: warns when you reserve AI training in robots.txt but haven't backed it with the stronger header/file signals.
 * Admin toolbar shortcut: a one-click "Agentimus" item beside "Howdy" on every screen (hidden on the plugin's own page), gated to administrators.
+* "Traffic from AI" on the dashboard: counts real visitors who arrive from AI assistants (ChatGPT, Perplexity, Gemini, …), with a by-source and top-landing-pages breakdown — the mirror of the activity log (bots taking content) showing AI bringing you readers. First-party and aggregate-only: no IP, no per-visitor data, nothing sent anywhere. Part of the activity log; read the number as a floor (some AI visits can't be detected).
 * These remain advisory signals honored by compliant crawlers — for a hard 403, use the crawler/scanner blocking, which is unchanged.
 
 = 1.1.0 =
