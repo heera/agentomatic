@@ -72,7 +72,7 @@ Most tools cover one slice — an llms.txt file, an AI-bot blocker, or structure
 
 = Does Agentimus make external requests or send my data anywhere? =
 
-No. Agentimus makes no outbound HTTP requests — nothing is sent to any external service, and no analytics or telemetry are collected. The agent-activity log is stored in your own database with no IP addresses. The discovery document includes a `$schema` value that *identifies* the document format (the same way a schema.org URL identifies a vocabulary); it is a label in the output, never fetched.
+No. Agentimus makes no outbound HTTP requests — nothing is sent to any external service, and no analytics or telemetry are collected. The agent-activity log is stored in your own database with no IP addresses. The discovery document includes a `$schema` value that *identifies* the document format (the same way a schema.org URL identifies a vocabulary); it is a label in the output, never fetched. The one place a request is made is the optional "Verify live" self-check on the readiness report — and that runs in *your browser*, fetching your own public URLs only when you click it; the server itself still makes no request.
 
 = Does this conflict with my SEO plugin? =
 
@@ -145,6 +145,7 @@ There is no minified-only code. The admin interface is built from Vue 3 source i
 
 = Unreleased =
 * Readiness report reorganised into a Findable → Readable → Trusted ladder: each rung groups its checks under a status-coloured heading, and the dashboard rail shows which rung you've reached plus a one-line next step that jumps straight to the check to fix.
+* "Verify live" on the readiness report: a one-click self-check that fetches your own agent endpoints **from your browser** (through the real public URL, so it sees what an agent gets — including anything a CDN serves) and shows what actually comes back. The server still makes no request; the check runs in your browser, only when you click it.
 * Agent endpoints (/llms.txt, /llms-full.txt, markdown, the fallback sitemap) now send `Access-Control-Allow-Origin: *`, so browser-based agents can read them cross-origin — matching the discovery documents.
 * HTML pages now advertise their markdown twin with a `Link: …; rel="alternate"; type="text/markdown"` header, so an agent can discover the `.md` URL instead of guessing it.
 

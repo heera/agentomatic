@@ -72,6 +72,15 @@ export default {
       const r = this.ladder.next && this.ladder.next.remaining[0];
       return r ? `ar-check-${r.id}` : null;
     },
+    // What the browser-side live self-check needs to probe the real endpoints.
+    liveConfig() {
+      return {
+        endpoints: this.endpoints,
+        discovery: this.discovery,
+        settings: this.settings,
+        samplePost: this.boot.samplePost || '',
+      };
+    },
     dirty() {
       return JSON.stringify(this.settings) !== this.savedSnapshot;
     },
@@ -594,6 +603,7 @@ export default {
           v-show="tab === 'readiness'"
           :checks="readiness"
           :refreshing="refreshingReadiness"
+          :live-config="liveConfig"
           @refresh="refreshReadiness"
           @navigate="goTo"
         />

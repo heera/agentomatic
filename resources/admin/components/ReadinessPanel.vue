@@ -1,22 +1,41 @@
 <script>
 import { groupChecks } from '../tiers.js';
+import { runAll } from '../livecheck.js';
 
 export default {
   name: 'ReadinessPanel',
   props: {
     checks: { type: Array, default: () => [] },
     refreshing: { type: Boolean, default: false },
+    liveConfig: { type: Object, default: () => ({}) },
   },
   emits: ['refresh', 'navigate'],
+  data() {
+    return { live: null, liveRunning: false };
+  },
   computed: {
     // The same checks, grouped under the Findable → Readable → Trusted rungs.
     groups() {
       return groupChecks(this.checks);
     },
+    livePass() {
+      return this.live ? this.live.filter((r) => r.ok).length : 0;
+    },
   },
   methods: {
     tagLabel(status) {
       return { pass: 'PASS', warn: 'WARN', fail: 'FAIL' }[status] || status.toUpperCase();
+    },
+    // Fetch the real endpoints from this browser and grade what an agent receives.
+    // The server makes no request — this runs here, same-origin, on click only.
+    async verifyLive() {
+      if (this.liveRunning) return;
+      this.liveRunning = true;
+      try {
+        this.live = await runAll(this.liveConfig);
+      } finally {
+        this.liveRunning = false;
+      }
     },
   },
 };
@@ -26,9 +45,35 @@ export default {
   <section class="ar-card">
     <div class="ar-card__head">
       <h2 class="ar-card__title">Readiness report</h2>
-      <button type="button" class="ar-btn" :disabled="refreshing" @click="$emit('refresh')">
-        {{ refreshing ? 'Running…' : 'Re-run' }}
-      </button>
+      <div class="ar-card__actions">
+        <button type="button" class="ar-btn" :disabled="liveRunning" @click="verifyLive">
+          {{ liveRunning ? 'Checking…' : 'Verify live' }}
+        </button>
+        <button type="button" class="ar-btn" :disabled="refreshing" @click="$emit('refresh')">
+          {{ refreshing ? 'Running…' : 'Re-run' }}
+        </button>
+      </div>
+    </div>
+
+    <div v-if="live || liveRunning" class="ar-live">
+      <div class="ar-live__head">
+        <h3 class="ar-live__title">What agents actually receive</h3>
+        <span v-if="live" class="ar-live__tally" :class="{ 'is-bad': livePass < live.length }">
+          {{ livePass }}/{{ live.length }} OK
+        </span>
+      </div>
+      <p class="ar-live__lead">
+        Fetched from your browser through the public URL — so this reflects what an agent gets
+        (including anything a CDN serves), not just your settings. The server makes no request.
+      </p>
+      <ul v-if="live" class="ar-live__list">
+        <li v-for="r in live" :key="r.key" class="ar-live__row" :class="{ 'is-bad': !r.ok }">
+          <span class="ar-live__dot" aria-hidden="true"></span>
+          <span class="ar-live__label">{{ r.label }}</span>
+          <span class="ar-live__detail">{{ r.detail }}</span>
+        </li>
+      </ul>
+      <p v-else class="ar-live__running">Fetching your endpoints…</p>
     </div>
 
     <div

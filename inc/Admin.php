@@ -309,7 +309,33 @@ final class Admin {
 			'version'     => AGENTIMUS_VERSION,
 			'onboarded'   => $this->is_onboarded(),
 			'llmsFullEstimate' => Content::estimate_full_size( $this->settings ),
+			// A real published, in-scope permalink for the live self-check to probe
+			// (markdown + its advertised Link). '' when the site has no such post yet.
+			'samplePost'  => $this->sample_post_url(),
 		);
+	}
+
+	/**
+	 * The most recent published permalink among the agent-visible post types — the
+	 * page the live self-check fetches to confirm markdown delivery and the
+	 * advertised `.md` Link work end to end. Empty when there's nothing to probe.
+	 *
+	 * @return string
+	 */
+	private function sample_post_url() {
+		$types = Content::post_types();
+		if ( empty( $types ) ) {
+			return '';
+		}
+		$posts = get_posts( array(
+			'post_type'        => $types,
+			'post_status'      => 'publish',
+			'numberposts'      => 1,
+			'orderby'          => 'date',
+			'order'            => 'DESC',
+			'suppress_filters' => false,
+		) );
+		return empty( $posts ) ? '' : (string) get_permalink( $posts[0] );
 	}
 
 	/**
