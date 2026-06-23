@@ -4,7 +4,7 @@ Tags: ai-agents, ai-crawlers, discovery, schema, llms-txt
 Requires at least: 6.9
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.1.0
+Stable tag: 1.2.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -143,7 +143,7 @@ There is no minified-only code. The admin interface is built from Vue 3 source i
 
 == Changelog ==
 
-= Unreleased =
+= 1.2.0 =
 * AI-usage signals beyond robots.txt: when you block AI training, the "Allow AI training" switch now also publishes a standardized TDM Reservation Protocol response header (`tdm-reservation: 1`) and an opt-out file at `/.well-known/tdmrep.json` — one decision, every channel, so a crawler that ignores robots.txt still sees your choice. Both are on by default and individually toggleable. An open site publishes neither (on the web, no signal already means "allowed").
 * Optional extras under Crawler policy: the non-standard `X-Robots-Tag: noai, noimageai` header (off by default) and an AI-usage policy URL surfaced as `tdm-policy`.
 * New readiness check: warns when you reserve AI training in robots.txt but haven't backed it with the stronger header/file signals.
@@ -166,6 +166,9 @@ There is no minified-only code. The admin interface is built from Vue 3 source i
 * Admin Discovery Hub for inspecting what agents can see, with per-item publish/suppress control.
 
 == Upgrade Notice ==
+
+= 1.2.0 =
+Your "Allow AI training" choice now reaches crawlers that ignore robots.txt, via the standard tdm-reservation header and /.well-known/tdmrep.json (both opt-out-only, on by default). Adds a "Traffic from AI" dashboard card and a one-click admin-bar shortcut.
 
 = 1.1.0 =
 Richer activity dashboard: click a day for a full per-day report with exact times. Plus guidance for unrecognised crawlers and refreshed crawler info links.
