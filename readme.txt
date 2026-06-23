@@ -1,6 +1,6 @@
 === Agentimus ===
 Contributors: heera
-Tags: ai-agents, ai-crawlers, discovery, schema, llms-txt
+Tags: ai-agents, ai-crawlers, agent-readiness, llms-txt, ai-seo
 Requires at least: 6.9
 Tested up to: 7.0
 Requires PHP: 7.4
@@ -8,13 +8,13 @@ Stable tag: 1.2.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-An AI-discovery layer for your site: a /.well-known discovery document, machine-readable pages, AI-crawl controls, and an agent-activity log.
+See which AI agents read your site and block the bad ones — plus llms.txt, crawl controls and a /.well-known discovery layer. AI agent readiness.
 
 == Description ==
 
-Agentimus makes your site legible to AI agents and crawlers. At its core it publishes a single, normalized **discovery document** at `/.well-known/discovery.json` — an open, standards-aligned map of your site's identity, capabilities and APIs — and is a reference implementation of that open discovery convention, not a private format. It backs that with the signals agents and search engines read *today*: clean machine-readable pages, JSON-LD, AI-crawl controls, and a first-party log of which agents actually visit. A one-screen readiness report shows how machine-readable your site is and what's still missing.
+Agentimus makes your site legible to AI agents and crawlers — and shows you which ones actually read it. You get a first-party log of every AI crawler that fetches your content, one-click blocking for the bots you don't want, and the machine-readable signals search engines and AI tools read *today*: a clean llms.txt, JSON-LD, markdown delivery, and AI-crawl controls. A one-screen readiness report scores how machine-readable your site is and what's still missing.
 
-This is more than an llms.txt generator: llms.txt is one signal among several, sitting under a coherent discovery layer rather than being the whole product.
+Underneath, it ties these together with a single, normalized **discovery document** at `/.well-known/discovery.json` — an open, standards-aligned map of your site's identity, capabilities and APIs, and a reference implementation of that open convention, not a private format. This is more than an llms.txt generator: llms.txt is one signal among several, sitting under a coherent discovery layer rather than being the whole product.
 
 It makes no outbound requests, collects no analytics, and logs no IP addresses. Everything runs on your own site.
 
