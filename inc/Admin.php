@@ -98,7 +98,9 @@ final class Admin {
 	 * @return array
 	 */
 	public function action_links( $links ) {
-		$url = admin_url( 'admin.php?page=' . self::SLUG );
+		// Deep-link to the Settings tab: the SPA reads the URL hash on load, so
+		// "#settings" lands there instead of the default Dashboard.
+		$url = admin_url( 'admin.php?page=' . self::SLUG ) . '#settings';
 		array_unshift( $links, '<a href="' . esc_url( $url ) . '">' . esc_html__( 'Settings', 'agentimus' ) . '</a>' );
 		return $links;
 	}
