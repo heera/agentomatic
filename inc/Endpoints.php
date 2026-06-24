@@ -477,6 +477,18 @@ final class Endpoints {
 			'' !== $tagline ? $tagline : 'A WordPress site'
 		);
 
+		// Bridge agents that enter via llms.txt to the structured manifest. The
+		// manifest is the single source of truth for this site's machine surfaces
+		// — endpoints, capabilities, agent cards, REST — and self-describes the
+		// protocol it implements ($schema + spec_version), so we link it rather
+		// than duplicating a capabilities list here that could drift out of sync.
+		// Always served (no enable toggle), so the pointer can never 404.
+		$out .= sprintf(
+			"\nA machine-readable discovery manifest of this site's agent endpoints, capabilities, and identity (and the protocol spec it implements) is at [%s](%s).\n",
+			'/.well-known/discovery.json',
+			esc_url_raw( home_url( '/.well-known/discovery.json' ) )
+		);
+
 		$out .= $this->about_block();
 
 		// A section per agent-visible post type (pages, posts, products, CPTs…).
