@@ -146,7 +146,7 @@ There is no minified-only code. The admin interface is built from Vue 3 source i
 == Changelog ==
 
 = Unreleased =
-* _Nothing yet — entries for the next release accumulate here, then this heading is renamed to the version number at publish time._
+* New readiness check, "/llms.txt substance": warns when your generated llms.txt is thin (under the ~200-word minimum agents expect) and a sparse index gives them little to read or cite. Rather than padding the file with filler, it points you at Identity to add a profile and expertise — real content that lifts the file over the line. Sits on the Readable rung.
 
 = 1.3.0 =
 * Readiness report reorganised into a Findable → Readable → Trusted ladder: each rung groups its checks under a status-coloured heading, and the dashboard rail shows which rung you've reached plus a one-line next step that jumps straight to the check to fix.

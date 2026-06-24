@@ -12,6 +12,12 @@ defined( 'ABSPATH' ) || exit;
 
 final class Readiness {
 
+	/**
+	 * The de-facto floor an llms.txt is expected to clear: a near-empty index
+	 * gives an agent almost nothing to read or cite. Checked by check_llms_words().
+	 */
+	const MIN_LLMS_WORDS = 200;
+
 	/** @var Settings */
 	private $settings;
 
@@ -32,6 +38,7 @@ final class Readiness {
 			$this->check_site_public(),
 			$this->check_permalinks(),
 			$this->check_llms_txt(),
+			$this->check_llms_words(),
 			$this->check_llms_full(),
 			$this->check_llms_full_size(),
 			$this->check_post_types(),
@@ -139,6 +146,73 @@ final class Readiness {
 				__( 'Turn on “/llms.txt index” under Settings → Features. It publishes a single map of your site that crawlers and agents check first.', 'agentimus' ),
 				$this->nav( __( 'Enable in Features', 'agentimus' ), 'ar-sec-features' )
 			);
+	}
+
+	/**
+	 * The /llms.txt index should carry enough substance to be worth reading: a
+	 * sparse file (no profile, a handful of posts) gives an agent little to ingest
+	 * or cite. We measure the generated index against a 200-word floor — the
+	 * de-facto minimum an llms.txt is expected to clear — and, when it's thin,
+	 * nudge toward real content rather than padding the file with filler.
+	 */
+	private function check_llms_words() {
+		// When the index is off, check_llms_txt() already warns — don't double-flag.
+		if ( ! $this->settings->enabled( 'enable_llms_txt' ) ) {
+			return $this->row( 'llms_words', __( '/llms.txt substance', 'agentimus' ), 'pass', __( 'The /llms.txt index is off, so there is nothing to measure.', 'agentimus' ) );
+		}
+
+		return $this->llms_words_row( self::word_count( ( new Endpoints( $this->settings ) )->llms_txt() ) );
+	}
+
+	/**
+	 * Grade a word count against the floor and build the row. Split from
+	 * check_llms_words() so the pass/warn threshold and its messaging are testable
+	 * without standing up the (WP-heavy) llms.txt generation pipeline.
+	 *
+	 * @param int $words Word count of the generated /llms.txt.
+	 * @return array
+	 */
+	private function llms_words_row( $words ) {
+		if ( $words >= self::MIN_LLMS_WORDS ) {
+			return $this->row(
+				'llms_words',
+				__( '/llms.txt substance', 'agentimus' ),
+				'pass',
+				sprintf(
+					/* translators: 1: word count; 2: the minimum, e.g. 200. */
+					__( 'Your /llms.txt carries about %1$s words — clear of the %2$s-word minimum agents expect.', 'agentimus' ),
+					number_format_i18n( $words ),
+					number_format_i18n( self::MIN_LLMS_WORDS )
+				)
+			);
+		}
+
+		return $this->row(
+			'llms_words',
+			__( '/llms.txt substance', 'agentimus' ),
+			'warn',
+			sprintf(
+				/* translators: 1: word count; 2: the minimum, e.g. 200. */
+				__( 'Your /llms.txt is thin — about %1$s words, under the %2$s-word minimum an agent expects. A sparse index gives it little to read or cite.', 'agentimus' ),
+				number_format_i18n( $words ),
+				number_format_i18n( self::MIN_LLMS_WORDS )
+			),
+			__( 'Flesh it out with real content, not filler: add a profile sentence and 3–5 expertise topics under Settings → Identity, and publish a few pages or posts. Each flows into llms.txt and lifts it over the minimum.', 'agentimus' ),
+			$this->nav( __( 'Edit Identity', 'agentimus' ), 'ar-sec-identity' )
+		);
+	}
+
+	/**
+	 * Count the human-readable words in a markdown document. The `(url)` half of
+	 * every link is dropped first so URLs don't inflate the total; what remains is
+	 * the prose and link labels an agent actually reads.
+	 *
+	 * @param string $markdown Markdown text.
+	 * @return int
+	 */
+	private static function word_count( $markdown ) {
+		$prose = preg_replace( '/\]\([^)]*\)/', ']', (string) $markdown ); // [label](url) → [label].
+		return str_word_count( wp_strip_all_tags( (string) $prose ) );
 	}
 
 	private function check_llms_full() {
