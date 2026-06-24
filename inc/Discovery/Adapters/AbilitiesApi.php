@@ -117,7 +117,7 @@ final class AbilitiesApi {
 				'description'  => $desc,
 				'inputSchema'  => (array) self::read( $ability, 'get_input_schema', array() ),
 				'outputSchema' => (array) self::read( $ability, 'get_output_schema', array() ),
-				'annotations'  => array( 'readOnlyHint' => self::looks_read_only( $name ) ),
+				'annotations'  => array( 'readOnlyHint' => self::read_only_hint( $ability, $name ) ),
 				// A permission callback means an authenticated WP context is needed.
 				'auth'         => $has_perm ? 'wp' : 'none',
 			);
@@ -161,13 +161,59 @@ final class AbilitiesApi {
 	}
 
 	/**
-	 * Heuristic readOnly hint from the ability name (get-/list-/read-… verbs).
+	 * Resolve a tool's `readOnlyHint` from the strongest available signal — a name
+	 * verb is the weakest, so it's the last resort, never the primary:
+	 *
+	 *   1. The ability's DECLARED annotation (`meta.annotations.readonly`) — the
+	 *      developer's explicit contract; honoured whether true or false. The
+	 *      Abilities API defaults it to null, so `isset()` reads "declared".
+	 *   2. The ability's TYPE — a resource (it carries a `uri`/`mimeType`) is a read
+	 *      by definition, so it's read-only even when its name has no read verb
+	 *      (e.g. a "contribution-guide" resource).
+	 *   3. A GUARDED name heuristic (see looks_read_only) — may only ever assert
+	 *      true; it never overrides a declared false, and ambiguity stays false.
+	 *
+	 * @param mixed  $ability The ability object.
+	 * @param string $name    Ability name (e.g. "core/get-site-info").
+	 * @return bool
+	 */
+	private static function read_only_hint( $ability, $name ) {
+		$meta        = (array) self::read( $ability, 'get_meta', array() );
+		$annotations = isset( $meta['annotations'] ) && is_array( $meta['annotations'] ) ? $meta['annotations'] : array();
+
+		// 1. An explicit declaration wins (true OR false). null/absent ⇒ undeclared.
+		if ( isset( $annotations['readonly'] ) ) {
+			return (bool) $annotations['readonly'];
+		}
+
+		// 2. A resource (carries a uri/mimeType) is a read, never a mutation.
+		if ( ! empty( $meta['uri'] ) || ! empty( $meta['mimeType'] ) ) {
+			return true;
+		}
+
+		// 3. Guarded name heuristic.
+		return self::looks_read_only( $name );
+	}
+
+	/**
+	 * GUARDED name heuristic for an undeclared tool: read-only only when the name
+	 * leads with a read verb AND carries no mutation token anywhere. This keeps
+	 * `get-orders` read-only while refusing to mark `get-and-delete` — a "get" that
+	 * actually writes — as safe. It only ever returns true; ambiguity stays false.
 	 *
 	 * @param string $name Ability name.
 	 * @return bool
 	 */
 	private static function looks_read_only( $name ) {
 		$verb = strpos( $name, '/' ) ? substr( $name, strpos( $name, '/' ) + 1 ) : $name;
-		return (bool) preg_match( '/^(get|list|read|search|find|fetch|query|count|view)[-_]/', $verb );
+
+		// Must lead with a read verb…
+		if ( ! preg_match( '/^(get|list|read|search|find|fetch|query|count|view)[-_]/', $verb ) ) {
+			return false;
+		}
+
+		// …and carry no mutation token (a "get" that also writes is not "safe").
+		$mutations = 'create|add|update|edit|set|put|delete|remove|destroy|clear|reset|prune|purge|sync|send|cancel|refund|import|export|write|save|store|generate|issue|revoke|approve|reject';
+		return ! preg_match( '/[-_](' . $mutations . ')([-_]|$)/', $verb );
 	}
 }
