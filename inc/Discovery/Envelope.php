@@ -634,20 +634,119 @@ final class Envelope {
 				if ( '' === $namespace ) {
 					continue;
 				}
-				$route   = method_exists( $server, 'get_server_route' ) ? (string) $server->get_server_route() : '';
-				$out[]   = array(
-					'id'        => method_exists( $server, 'get_server_id' ) ? (string) $server->get_server_id() : '',
+				$route     = method_exists( $server, 'get_server_route' ) ? (string) $server->get_server_route() : '';
+				$tool_list = self::server_tools( $server );
+				$id        = method_exists( $server, 'get_server_id' ) ? (string) $server->get_server_id() : '';
+				$entry     = array(
+					'id'        => $id,
 					'name'      => method_exists( $server, 'get_server_name' ) ? (string) $server->get_server_name() : '',
 					'version'   => method_exists( $server, 'get_server_version' ) ? (string) $server->get_server_version() : '',
 					'endpoint'  => esc_url_raw( rest_url( trailingslashit( $namespace ) . ltrim( $route, '/' ) ) ),
 					'transport' => 'streamable-http',
-					'tools'     => method_exists( $server, 'get_tools' ) ? count( (array) $server->get_tools() ) : 0,
+					'tools'     => count( $tool_list ),
+					// The server's real, directly-registered tools (name + description) —
+					// what's actually callable at this endpoint, by these exact names.
+					'tool_list' => $tool_list,
 				);
+				// Link each tool-bearing server to its own SEP-2127 card, so an agent can
+				// enumerate servers here and jump straight to each card without guessing.
+				if ( '' !== $id && ! empty( $tool_list ) ) {
+					$entry['card'] = esc_url_raw( home_url( '/.well-known/mcp/' . rawurlencode( $id ) . '/server-card.json' ) );
+				}
+				$out[] = $entry;
 			}
 			return $out;
 		} catch ( \Throwable $e ) {
 			return array();
 		}
+	}
+
+	/**
+	 * A server's real, directly-registered MCP tools as `[{name, description}]`.
+	 * Read from the live server object (`get_tools()`), so it reflects exactly what
+	 * is callable at that server's endpoint — not the ability registry. Tolerant of
+	 * adapter shape drift (string entries, missing getters).
+	 *
+	 * @param object $server An MCP server object.
+	 * @return array<int,array{name:string,description:string}>
+	 */
+	private static function server_tools( $server ) {
+		if ( ! is_object( $server ) || ! method_exists( $server, 'get_tools' ) ) {
+			return array();
+		}
+		$tools = array();
+		foreach ( (array) $server->get_tools() as $tool ) {
+			if ( is_object( $tool ) && method_exists( $tool, 'get_name' ) ) {
+				$name = (string) $tool->get_name();
+				$desc = method_exists( $tool, 'get_description' ) ? (string) $tool->get_description() : '';
+			} elseif ( is_string( $tool ) ) {
+				$name = $tool;
+				$desc = '';
+			} else {
+				continue;
+			}
+			if ( '' !== $name ) {
+				$tools[] = array( 'name' => $name, 'description' => $desc );
+			}
+		}
+		return $tools;
+	}
+
+	/**
+	 * Choose which single server the server card represents. The well-known path
+	 * holds one card, but a site can run several servers — so pick the one with the
+	 * most real tools (the card stays non-empty and useful), tie-broken by detection
+	 * order. Filterable so a site can pin a specific server by id.
+	 *
+	 * @param array[] $servers Detected servers (each from mcp_servers()).
+	 * @return array The chosen server, or [] when there are none.
+	 */
+	private static function primary_server( $servers ) {
+		$servers = array_values( (array) $servers );
+		if ( empty( $servers ) ) {
+			return array();
+		}
+
+		/**
+		 * Filter the server id the MCP server card should describe.
+		 *
+		 * @param string  $id      Server id to pin ('' = auto: the one with the most tools).
+		 * @param array[] $servers All detected servers.
+		 */
+		$pinned = (string) apply_filters( 'agentimus_mcp_card_server', '', $servers );
+		if ( '' !== $pinned ) {
+			foreach ( $servers as $s ) {
+				if ( isset( $s['id'] ) && $pinned === $s['id'] ) {
+					return $s;
+				}
+			}
+		}
+
+		$best = $servers[0];
+		foreach ( $servers as $s ) {
+			if ( ( isset( $s['tools'] ) ? (int) $s['tools'] : 0 ) > ( isset( $best['tools'] ) ? (int) $best['tools'] : 0 ) ) {
+				$best = $s;
+			}
+		}
+		return $best;
+	}
+
+	/**
+	 * Project a detected server's real tools into the card's `{name, description}`
+	 * shape. Used for both the primary server's `tools` and each entry in `servers[]`.
+	 *
+	 * @param array $server A server row from mcp_servers().
+	 * @return array<int,array{name:string,description:string}>
+	 */
+	private static function card_tools( $server ) {
+		$tools = array();
+		foreach ( ( isset( $server['tool_list'] ) ? (array) $server['tool_list'] : array() ) as $tool ) {
+			$tools[] = array(
+				'name'        => isset( $tool['name'] ) ? $tool['name'] : '',
+				'description' => isset( $tool['description'] ) ? $tool['description'] : '',
+			);
+		}
+		return $tools;
 	}
 
 	/**
@@ -689,42 +788,76 @@ final class Envelope {
 	}
 
 	/**
-	 * The MCP Server Card at /.well-known/mcp/server-card.json — the same MCP surface
-	 * as mcp.json, projected into the schema scanners look for at that path. Served
-	 * ONLY when a real MCP server is advertised (mcp.available); a content site with
-	 * no server returns '' → a clean 404 (honest, never a stub).
+	 * The MCP Server Card at /.well-known/mcp/server-card.json — a standard SINGLE-server
+	 * card (the shape scanners expect), describing the PRIMARY server (the richest,
+	 * filterable via `agentimus_mcp_card_server`) with its real, directly-registered
+	 * tools — callable at its endpoint by those exact names, NOT the site-wide ability
+	 * registry. There is no standard for listing several servers in one card (SEP-2127
+	 * defines no array/index), so additional servers get their own cards at the named
+	 * sub-path /.well-known/mcp/{id}/server-card.json. Served ONLY when a real MCP server
+	 * is advertised; a content site with none returns '' → a clean 404.
 	 *
 	 * @return string JSON, or '' when no MCP server is available.
 	 */
 	public function mcp_server_card_json() {
 		$surface = $this->mcp_surface();
 		$mcp     = $surface['mcp'];
+		if ( empty( $mcp['available'] ) || empty( $mcp['servers'] ) ) {
+			return '';
+		}
+		$server = self::primary_server( $mcp['servers'] );
+		if ( empty( $server ) ) {
+			return '';
+		}
+		return $this->encode( $this->build_server_card( $server, $mcp ) );
+	}
+
+	/**
+	 * The per-server card at /.well-known/mcp/{id}/server-card.json — a single-server
+	 * card for one named MCP server. Served only for a tool-bearing server matching
+	 * $id; an unknown id (or a server with no visible tools) returns '' → a clean 404.
+	 *
+	 * @param string $id Server id.
+	 * @return string JSON, or '' when no such server.
+	 */
+	public function mcp_server_card_json_for( $id ) {
+		$id = (string) $id;
+		if ( '' === $id ) {
+			return '';
+		}
+		$surface = $this->mcp_surface();
+		$mcp     = $surface['mcp'];
 		if ( empty( $mcp['available'] ) ) {
 			return '';
 		}
-
-		$site   = $this->site();
-		$server = ! empty( $mcp['servers'][0] ) ? $mcp['servers'][0] : array();
-
-		$tools = array();
-		foreach ( $surface['tools'] as $tool ) {
-			$tools[] = array(
-				'name'        => isset( $tool['name'] ) ? $tool['name'] : '',
-				'description' => isset( $tool['description'] ) ? $tool['description'] : '',
-			);
+		foreach ( $mcp['servers'] as $s ) {
+			if ( isset( $s['id'] ) && (string) $s['id'] === $id && ! empty( $s['tool_list'] ) ) {
+				return $this->encode( $this->build_server_card( $s, $mcp ) );
+			}
 		}
+		return '';
+	}
 
+	/**
+	 * Build a standard single-server card array for one server row.
+	 *
+	 * @param array $server A server from mcp_servers().
+	 * @param array $mcp    The MCP descriptor (for auth).
+	 * @return array
+	 */
+	private function build_server_card( $server, $mcp ) {
+		$site = $this->site();
 		$card = array(
 			'schemaVersion' => '2024-11-05',
 			'serverInfo'    => array(
-				'name'    => $site['name'],
+				'name'    => ( isset( $server['name'] ) && '' !== $server['name'] ) ? $server['name'] : $site['name'],
 				'version' => ( isset( $server['version'] ) && '' !== $server['version'] ) ? $server['version'] : '1.0.0',
 			),
 			'transport'     => array(
-				'type' => ( isset( $mcp['transport'] ) && '' !== $mcp['transport'] ) ? $mcp['transport'] : 'http',
-				'url'  => isset( $mcp['endpoint'] ) ? $mcp['endpoint'] : '',
+				'type' => ( isset( $server['transport'] ) && '' !== $server['transport'] ) ? $server['transport'] : 'http',
+				'url'  => isset( $server['endpoint'] ) ? $server['endpoint'] : '',
 			),
-			'tools'         => $tools,
+			'tools'         => self::card_tools( $server ),
 		);
 		if ( ! empty( $mcp['auth'] ) ) {
 			$card['auth'] = array( 'type' => $mcp['auth'] );
@@ -732,8 +865,17 @@ final class Envelope {
 				$card['auth']['metadata'] = $mcp['auth_metadata'];
 			}
 		}
+		return $card;
+	}
 
-		$json = wp_json_encode( $card, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
+	/**
+	 * Pretty JSON for a well-known doc (slashes/unicode unescaped), or '' on failure.
+	 *
+	 * @param mixed $data Data to encode.
+	 * @return string
+	 */
+	private function encode( $data ) {
+		$json = wp_json_encode( $data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
 		return is_string( $json ) ? $json : '';
 	}
 

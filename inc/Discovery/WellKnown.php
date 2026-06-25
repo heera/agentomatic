@@ -135,6 +135,10 @@ final class WellKnown {
 			add_rewrite_rule( '^\.well-known/(' . $nested . ')$', 'index.php?wpd_well_known_nested=$matches[1]', 'top' );
 			add_rewrite_tag( '%wpd_well_known_nested%', '(.+)' );
 		}
+
+		// Per-server MCP cards: a CONTROLLED wildcard for the {id} segment only, bounded
+		// by the exact mcp/.../server-card.json shape — never a general nesting surface.
+		add_rewrite_rule( '^\.well-known/mcp/([^/]+)/server-card\.json$', 'index.php?wpd_well_known_nested=mcp/$matches[1]/server-card.json', 'top' );
 	}
 
 	/**
@@ -173,6 +177,13 @@ final class WellKnown {
 				}
 				$this->registry->collect();
 				$this->route_nested( $name );
+			} elseif ( preg_match( '#^mcp/([^/]+)/server-card\.json$#', $name, $m ) ) {
+				// A per-server MCP card — the {id} is the captured segment.
+				$this->registry->collect();
+				$body = $this->envelope->mcp_server_card_json_for( rawurldecode( $m[1] ) );
+				if ( '' !== $body ) {
+					$this->send( $body, 'application/json', $name );
+				}
 			}
 			$this->maybe_clean_404();
 			return;
