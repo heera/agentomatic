@@ -307,6 +307,15 @@ final class Admin {
 				'robots'   => home_url( '/robots.txt' ),
 			),
 			'version'     => AGENTIMUS_VERSION,
+			// Surfaced on the About tab so the protocol facts mirror the code,
+			// not hand-copied strings that can drift.
+			'protocol'    => array(
+				'name'      => 'WP_Discovery',
+				'version'   => Discovery\Envelope::SPEC_VERSION,
+				'hook'      => \AGENTIMUS_CANONICAL_HOOK,
+				'specUrl'   => 'https://github.com/heera/wp-discovery-protocol',
+				'schemaUrl' => apply_filters( 'agentimus_schema_url', Discovery\Envelope::SCHEMA_BASE . '/discovery/' . Discovery\Envelope::SPEC_VERSION . '/discovery.schema.json' ),
+			),
 			'onboarded'   => $this->is_onboarded(),
 			'llmsFullEstimate' => Content::estimate_full_size( $this->settings ),
 			// A real published, in-scope permalink for the live self-check to probe

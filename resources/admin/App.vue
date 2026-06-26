@@ -7,10 +7,11 @@ import DiscoveryHub from './components/DiscoveryHub.vue';
 import ActivityPanel from './components/ActivityPanel.vue';
 import ReviewMenu from './components/ReviewMenu.vue';
 import OnboardingWizard from './components/OnboardingWizard.vue';
+import AboutPanel from './components/AboutPanel.vue';
 
 export default {
   name: 'AgentimusApp',
-  components: { SettingsForm, ReadinessPanel, DiscoveryHub, ActivityPanel, ReviewMenu, OnboardingWizard },
+  components: { SettingsForm, ReadinessPanel, DiscoveryHub, ActivityPanel, ReviewMenu, OnboardingWizard, AboutPanel },
   props: {
     boot: { type: Object, required: true },
   },
@@ -19,7 +20,7 @@ export default {
     return {
       api: createApi(this.boot),
       // Restore the tab from the URL hash so a refresh keeps the same page.
-      tab: ['dashboard', 'settings', 'readiness', 'discovery'].includes(fromHash) ? fromHash : 'dashboard',
+      tab: ['dashboard', 'settings', 'readiness', 'discovery', 'about'].includes(fromHash) ? fromHash : 'dashboard',
       settings: JSON.parse(JSON.stringify(this.boot.settings || {})),
       defaults: this.boot.defaults || {},
       readiness: this.boot.readiness || [],
@@ -39,6 +40,7 @@ export default {
       endpoints: this.boot.endpoints || {},
       llmsFullEstimate: this.boot.llmsFullEstimate || {},
       version: this.boot.version || '',
+      protocol: this.boot.protocol || {},
       saving: false,
       resetting: false,
       onboarded: !!this.boot.onboarded,
@@ -160,6 +162,7 @@ export default {
         { id: 'settings', label: 'Settings' },
         { id: 'readiness', label: 'Readiness' },
         { id: 'discovery', label: 'Discovery' },
+        { id: 'about', label: 'About' },
       ];
     },
     dashSummary() {
@@ -696,6 +699,12 @@ export default {
           :api="api"
           @refresh="refreshActivity"
           @clear="clearActivity"
+          @navigate="goTo"
+        />
+        <AboutPanel
+          v-show="tab === 'about'"
+          :version="version"
+          :protocol="protocol"
           @navigate="goTo"
         />
       </div>

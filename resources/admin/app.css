@@ -184,8 +184,6 @@
   display: inline-flex; align-items: center; justify-content: center;
   background: var(--ar-bad); color: var(--ar-paper);
 }
-.ar__review-caret { color: var(--ar-ink-faint); transition: transform 0.18s ease; }
-.ar__review.is-open .ar__review-caret { transform: rotate(180deg); }
 .ar__review-pop {
   position: absolute; top: calc(100% + 8px); right: 0; z-index: 60;
   width: 400px; max-width: calc(100cqw - 32px);
@@ -452,11 +450,11 @@
   .ar__rail { position: static; margin-top: 22px; }
 }
 
-/* Narrow widths: stack the header into two rows so no tab is ever hidden. Below
-   ~720px the inline tab strip can't fit all four and would scroll silently (the
-   rightmost tabs vanish with no scrollbar to hint at them). Row 1 is the brand
-   alone; row 2 is the navbar itself — tabs spread across it with the bell pinned
-   to the right (a touch smaller) so the notification sits on the menu row. */
+/* Narrow widths: stack the header into two rows. Row 1 is the brand alone; row 2
+   is the navbar — all tabs on a single line at the left with the bell pinned to
+   the right (a touch smaller) so the notification sits on the menu row. The tab
+   strip keeps every item on one line, scrolling horizontally only if the screen
+   is too narrow for all of them. */
 @container (max-width: 720px) {
   .ar__bar {
     flex-wrap: wrap;
@@ -476,22 +474,23 @@
   .ar__mark { width: 26px; height: 26px; }
   .ar__logo { width: 16px; }
   .ar__name { font-size: 15px; }
-  /* Navbar row: tabs sit together at the left (a calm menu-style gap, not spread
-     edge-to-edge) and wrap instead of scrolling; the bell stays pinned to the
-     right. flex-basis:0 lets the tab strip shrink-to-fit beside the bell so the
-     bell never gets bumped onto its own line on a phone. */
+  /* Navbar row: all tabs stay on ONE line at the left; the labels tighten a
+     touch so every one fits on typical small screens, and if the viewport is
+     narrower than that the strip scrolls horizontally (scrollbar hidden) rather
+     than wrapping a tab onto its own row. The bell stays pinned right;
+     flex-basis:0 lets the strip shrink-to-fit beside it. */
   .ar__tabs {
     flex: 1 1 0; min-width: 0;
-    flex-wrap: wrap;
-    overflow: visible;
-    gap: 9px 22px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 16px;
   }
+  .ar__tab { letter-spacing: 0.07em; font-size: 10.5px; }
   .ar__review { flex: 0 0 auto; align-self: center; }
   /* Slightly smaller bell so it reads as a peer of the tab labels, not a button
      looming over them. */
   .ar__review-btn { padding: 4px 7px; gap: 5px; }
   .ar__review-btn > svg:first-child { width: 13px; height: 13px; }
-  .ar__review-caret { width: 10px; height: 10px; }
   .ar__pagehead { padding-left: 16px; padding-right: 16px; }
   .ar__body { padding: 20px 16px; }
 }
@@ -1667,3 +1666,114 @@ select.ar-input {
 .ar-manage__sep { border: 0; border-top: 1px solid var(--ar-line); margin: 0; width: 100%; }
 .ar-manage .ar-btn { min-width: 160px; } /* equal-width action buttons, sized to the longer "Review setup" label */
 .ar-reset__text em { font-style: normal; font-weight: 600; color: var(--ar-ink-soft); }
+
+/* ======================================================================
+   About tab — capabilities, transparency, protocol, FAQ
+   ====================================================================== */
+.ar-about { display: grid; gap: 22px; min-width: 0; }
+.ar-about-ver {
+  margin-left: 10px; font-family: var(--ar-mono); font-size: 11px; font-weight: 400;
+  letter-spacing: 0.04em; color: var(--ar-ink-faint); vertical-align: middle;
+}
+.ar-about-intro-note { margin: 14px 0 0; font-size: 12.5px; line-height: 1.6; color: var(--ar-ink-soft); }
+.ar-about-intro-note .ar-linkbtn { font-size: 12.5px; }
+
+/* Features list */
+.ar-about-feat { margin-top: 22px; }
+.ar-about-feat:first-of-type { margin-top: 6px; }
+.ar-about-feat__head { margin-bottom: 8px; }
+.ar-about-feat__title {
+  margin: 0; font-family: var(--ar-mono); font-size: 11px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--ar-ink);
+}
+.ar-about-feat__lead { margin: 3px 0 0; font-size: 12.5px; color: var(--ar-ink-faint); }
+.ar-about-list { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--ar-line); }
+.ar-about-item {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 14px;
+  padding: 12px 2px; border-bottom: 1px solid var(--ar-line);
+}
+.ar-about-item__main { min-width: 0; }
+.ar-about-item__top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; }
+.ar-about-item__name { font-size: 13.5px; font-weight: 600; color: var(--ar-ink); }
+.ar-about-item__where {
+  font-family: var(--ar-mono); font-size: 11.5px; color: var(--ar-ink-soft);
+  background: var(--ar-surface-2); border: 1px solid var(--ar-line); border-radius: 3px; padding: 1px 6px;
+  overflow-wrap: anywhere;
+}
+.ar-about-item__desc { margin: 4px 0 0; font-size: 12.5px; line-height: 1.5; color: var(--ar-ink-soft); max-width: 80ch; }
+.ar-about-tag {
+  flex: 0 0 auto; font-family: var(--ar-mono); font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 3px 8px; border-radius: 999px; border: 1px solid var(--ar-line-strong); color: var(--ar-ink-faint);
+  white-space: nowrap;
+}
+.ar-about-tag.is-on { color: var(--ar-good); border-color: #bcdcc6; background: #eef5f0; }
+
+/* Privacy & data */
+.ar-about-priv__grid { display: grid; gap: 14px; margin-top: 4px; }
+.ar-about-priv__cell {
+  padding: 16px 18px; border: 1px solid var(--ar-line); border-radius: var(--ar-radius); background: var(--ar-surface-2);
+}
+.ar-about-priv__cell h3 { margin: 0 0 6px; font-size: 13.5px; color: var(--ar-ink); }
+.ar-about-priv__cell p { margin: 0; font-size: 12.5px; line-height: 1.6; color: var(--ar-ink-soft); }
+.ar-about-priv__cell--head {
+  display: flex; gap: 14px; align-items: flex-start; background: var(--ar-ink); border-color: var(--ar-ink);
+}
+.ar-about-priv__cell--head h3 { color: var(--ar-paper); }
+.ar-about-priv__cell--head p { color: rgba(243, 240, 231, 0.72); }
+.ar-about-priv__cell--head .ar-linkbtn { color: #57b6a6; }
+.ar-about-priv__icon {
+  flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
+  width: 34px; height: 34px; border-radius: 50%; color: #5cc08a; background: rgba(92, 192, 138, 0.14);
+}
+.ar-about-not { margin: 10px 0 0; padding: 0; list-style: none; display: grid; gap: 5px; }
+.ar-about-not li { position: relative; padding-left: 20px; font-size: 12px; color: var(--ar-ink-soft); }
+.ar-about-not li::before {
+  content: "\2715"; position: absolute; left: 2px; top: 0; color: var(--ar-bad); font-size: 11px; font-weight: 700;
+}
+.ar-about-priv__foot { margin-top: 12px !important; font-size: 12px !important; color: var(--ar-ink-faint) !important; }
+
+/* WP_Discovery protocol */
+.ar-about-chips { display: flex; flex-wrap: wrap; gap: 7px; margin: 0 0 18px; padding: 0; list-style: none; }
+.ar-about-chip {
+  font-family: var(--ar-mono); font-size: 10.5px; letter-spacing: 0.03em; color: var(--ar-ink-soft);
+  padding: 4px 9px; border: 1px solid var(--ar-line-strong); border-radius: 999px; background: var(--ar-surface-2);
+}
+.ar-about-proto__meta {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; margin: 0 0 22px;
+  background: var(--ar-line); border: 1px solid var(--ar-line); border-radius: var(--ar-radius); overflow: hidden;
+}
+.ar-about-proto__fact { display: flex; flex-direction: column; gap: 4px; padding: 13px 15px; background: var(--ar-surface); }
+.ar-about-proto__k {
+  font-family: var(--ar-mono); font-size: 9.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ar-ink-faint);
+}
+.ar-about-proto__v { font-size: 13px; color: var(--ar-ink); }
+a.ar-about-proto__v { color: var(--ar-accent); text-decoration: none; }
+a.ar-about-proto__v:hover { text-decoration: underline; }
+.ar-about-proto__dev h3 { margin: 0 0 6px; font-size: 13.5px; color: var(--ar-ink); }
+.ar-about-proto__dev p { margin: 0 0 12px; font-size: 12.5px; line-height: 1.6; color: var(--ar-ink-soft); max-width: 80ch; }
+.ar-about-snippet {
+  margin: 0; padding: 14px 16px; overflow-x: auto; border-radius: var(--ar-radius);
+  background: var(--ar-ink); color: #e9e4d6; font-family: var(--ar-mono); font-size: 12px; line-height: 1.55;
+}
+.ar-about-snippet code { color: inherit; background: none; padding: 0; border: 0; }
+
+/* FAQ accordion */
+.ar-about-faq { margin: 0; padding: 0; list-style: none; }
+.ar-about-faq__item { border-bottom: 1px solid var(--ar-line); }
+.ar-about-faq__item:first-child { border-top: 1px solid var(--ar-line); }
+.ar-about-faq__q {
+  appearance: none; width: 100%; background: none; border: 0; cursor: pointer; text-align: left;
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  padding: 14px 2px; font-size: 13.5px; font-weight: 600; color: var(--ar-ink); font-family: var(--ar-sans);
+}
+.ar-about-faq__q:hover { color: var(--ar-accent); }
+.ar-about-faq__caret { flex: 0 0 auto; color: var(--ar-ink-faint); transition: transform 0.15s ease; }
+.ar-about-faq__item.is-open .ar-about-faq__caret { transform: rotate(90deg); color: var(--ar-accent); }
+.ar-about-faq__a { margin: 0 0 14px; padding-right: 28px; font-size: 12.5px; line-height: 1.65; color: var(--ar-ink-soft); max-width: 90ch; }
+
+@media (prefers-reduced-motion: reduce) { .ar-about-faq__caret { transition: none; } }
+@media (max-width: 600px) {
+  .ar-about-proto__meta { grid-template-columns: 1fr; }
+  .ar-about-item { flex-direction: column; }
+  .ar-about-tag { align-self: flex-start; }
+}

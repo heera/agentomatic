@@ -123,7 +123,6 @@ export default {
         <path d="M6.8 12.2a1.3 1.3 0 0 0 2.4 0" />
       </svg>
       <span v-if="count" class="ar__review-count">{{ count }}</span>
-      <svg class="ar__review-caret" viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6l4 4 4-4" /></svg>
     </button>
 
     <div v-if="open" class="ar__review-pop" role="dialog" aria-label="Activity to review" @click.stop>
