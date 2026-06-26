@@ -4,7 +4,7 @@ Tags: ai-agents, ai-crawlers, agent-readiness, llms-txt, ai-seo
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.4.3
+Stable tag: 1.5.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -52,7 +52,7 @@ Agentimus also publishes a single, normalized discovery document, built to the c
 
 * **/.well-known/discovery.json** — an owner-curated document describing the site's identity, capabilities, APIs and agent cards. Other plugins can declare themselves through a single optional hook, so what an agent needs is aggregated in one place.
 * **/.well-known/agent-card.json** and **/.well-known/mcp.json** — an A2A agent card and an MCP manifest, generated automatically.
-* **Standards-aligned `.well-known` endpoints** — an RFC 9727 `api-catalog`, plus — *only when the capability actually exists* — an MCP server card and an Agent Skills index. Optional **response signing** (Web Bot Auth / HTTP Message Signatures, RFC 9421): sign the discovery documents with an Ed25519 key published at `/.well-known/http-message-signatures-directory`, so agents can verify they came from you. Off by default.
+* **Standards-aligned `.well-known` endpoints** — an RFC 9727 `api-catalog`, plus — *only when the capability actually exists* — an MCP server card and an Agent Skills index. Optional **response signing** (Web Bot Auth / HTTP Message Signatures, RFC 9421): sign the discovery documents with an Ed25519 key published at `/.well-known/http-message-signatures-directory`, so agents can verify they came from you. On by default; the private key stays on your server.
 * **WordPress Abilities API → MCP tools** — registered abilities are projected into MCP-shaped tool descriptors, and a running MCP server (if one is installed) is detected and linked. Agentimus advertises tools; it does not execute them.
 * **Zero-config auto-discovery** — reads your registered REST API namespaces, public post types and the WordPress Abilities API, so a site is described even when no plugin declares itself. A **Discovery Hub** admin screen shows what an agent can see, and you decide what is published.
 
@@ -145,6 +145,16 @@ There is no minified-only code. The admin interface is built from Vue 3 source i
 
 == Changelog ==
 
+= 1.5.0 =
+* New About tab: a plain-English account of everything Agentimus does (each capability, what it publishes, and whether it ships on), a Privacy & data section grounded in the code (no server-side outbound calls, no IP or other PII, local-only activity, and a signing key that never leaves your server), the WP_Discovery Protocol it implements (with links to the spec and JSON Schema and a one-hook snippet so other plugins can extend the discovery output), and an operational FAQ.
+* Verified responses (Ed25519 / RFC 9421 signing of the discovery documents) now ship **on by default**. The keypair is generated on your server, the private key is never autoloaded and never leaves the site, and the public key directory is published at /.well-known/http-message-signatures-directory so agents can confirm the documents are really yours and unaltered. It's feature-detected (silently skipped if libsodium isn't available) and still toggleable under Settings.
+* Privacy fix: password-protected posts and pages no longer leak their title, dates or Q&A into the JSON-LD schema in your page head or into the XML sitemap. Only published, publicly-visible content is described — matching how llms.txt and markdown already behaved.
+* Hardened agent blocking: closed a bypass where appending a known crawler token to a User-Agent could dodge the denylist. Real search engines and AI crawlers are now matched by structured signatures at a token boundary, so a spoofed string earns no trust while genuine bots (and their variants) still match.
+* Friendlier first run: a proper welcome on first activation, mode-aware copy, and a brief celebration when onboarding completes; the setup wizard's "Skip" is now instant and its fields are full-width.
+* Clearer Settings: the Authenticated API field is plain-language with a one-click same-origin check, Setup-guide and Reset are grouped into one block with equal-width actions, and the security-contact and signing copy were reworded so every option explains itself.
+* Discovery tab: "Well-known documents" now spans the full width, and validation moved to a compact "Registration status" card in the sidebar that expands to a full list only when there's something to fix.
+* Admin nav keeps all tabs on a single row at narrow widths, and the notification bell drops its dropdown caret.
+
 = 1.4.3 =
 * The MCP server card at `/.well-known/mcp/server-card.json` now describes a real MCP server using that server's own tools — exactly what's callable at its endpoint — instead of the site-wide ability list (which could list tools that weren't actually exposed there). On a site running more than one MCP server, the card represents the richest server, and every other server gets its own card at `/.well-known/mcp/{server}/server-card.json`; a site with no MCP server returns a clean 404 as before.
 * The `/.well-known/mcp.json` manifest now links each server to its own card, so an agent can enumerate the servers a site exposes and jump straight to each card without guessing the URL.
@@ -193,6 +203,9 @@ There is no minified-only code. The admin interface is built from Vue 3 source i
 * Admin Discovery Hub for inspecting what agents can see, with per-item publish/suppress control.
 
 == Upgrade Notice ==
+
+= 1.5.0 =
+Adds an About tab (capabilities, a code-grounded privacy account, and the WP_Discovery Protocol it implements). Response signing (RFC 9421) is now ON by default — the key is generated on your server, never autoloaded, and never leaves the site; it's feature-detected and still toggleable. Also fixes a privacy leak (password-protected content no longer appears in JSON-LD schema or the sitemap) and closes a User-Agent blocking bypass.
 
 = 1.4.3 =
 The MCP server card now describes a real MCP server and its actual tools instead of the site-wide ability list. Sites running several MCP servers get one card each at /.well-known/mcp/{server}/server-card.json, and mcp.json now links to every server's card. No change for sites without an MCP server.
