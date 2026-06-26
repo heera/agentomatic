@@ -102,37 +102,20 @@ export default {
   },
   methods: {
     toggleFaq(i) { this.openFaq = this.openFaq === i ? -1 : i; },
-    scrollToProtocol() {
-      const el = document.getElementById('ar-about-protocol');
-      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    },
   },
 };
 </script>
 
 <template>
   <div class="ar-about">
-    <!-- Intro -->
-    <section class="ar-card">
-      <h2 class="ar-card__title">About Agentimus<span v-if="version" class="ar-about-ver">v{{ version }}</span></h2>
-      <p class="ar-card__lead">
-        Agentimus makes your WordPress site legible to AI agents and assistants. It publishes the
-        standard documents agents look for, offers your content in machine-readable formats, and adds
-        trust signals so agents can <strong>find</strong>, <strong>read</strong> and
-        <strong>verify</strong> your site — automatically, with nothing to configure.
-      </p>
-      <p class="ar-about-intro-note">
-        Everything below is on by default unless marked otherwise. It’s built on the open
-        <button type="button" class="ar-linkbtn" @click="scrollToProtocol">WP_Discovery Protocol</button>,
-        and this page is a full, honest account of what it does and what it touches.
-      </p>
-    </section>
-
     <!-- Features -->
     <section class="ar-card">
       <h2 class="ar-card__title">What it does</h2>
       <p class="ar-card__lead">
-        Every capability, what it publishes, and whether it ships on. You can see the live documents on the
+        Agentimus makes your site legible to AI agents — it publishes the documents they look for, offers
+        your content in machine-readable formats, and adds trust signals so agents can find, read and
+        verify your site. Everything here is on by default unless marked otherwise; see the live documents
+        on the
         <button type="button" class="ar-linkbtn" @click="$emit('navigate', { tab: 'discovery' })">Discovery</button>
         tab and change any default under
         <button type="button" class="ar-linkbtn" @click="$emit('navigate', { tab: 'settings' })">Settings</button>.

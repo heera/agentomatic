@@ -1671,12 +1671,6 @@ select.ar-input {
    About tab — capabilities, transparency, protocol, FAQ
    ====================================================================== */
 .ar-about { display: grid; gap: 22px; min-width: 0; }
-.ar-about-ver {
-  margin-left: 10px; font-family: var(--ar-mono); font-size: 11px; font-weight: 400;
-  letter-spacing: 0.04em; color: var(--ar-ink-faint); vertical-align: middle;
-}
-.ar-about-intro-note { margin: 14px 0 0; font-size: 12.5px; line-height: 1.6; color: var(--ar-ink-soft); }
-.ar-about-intro-note .ar-linkbtn { font-size: 12.5px; }
 
 /* Features list */
 .ar-about-feat { margin-top: 22px; }

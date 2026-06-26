@@ -194,6 +194,10 @@ export default {
             title: 'Discovery',
             description: 'The single document agents read to understand this site — every registered plugin aggregated into one place.',
           },
+          about: {
+            title: 'About',
+            description: 'Everything Agentimus does, what each feature publishes, and exactly what it touches — a plain-English, honest account.',
+          },
         }[this.tab] || { title: '', description: '' }
       );
     },
