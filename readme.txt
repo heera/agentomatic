@@ -4,7 +4,7 @@ Tags: ai-agents, ai-crawlers, agent-readiness, llms-txt, ai-seo
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.5.0
+Stable tag: 1.6.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -160,6 +160,10 @@ There is no minified-only code. The admin interface is built from Vue 3 source i
 
 == Changelog ==
 
+= 1.6.0 =
+* Companion plugins now "just work": when another plugin registers a discovery resource or serves its own /.well-known document, Agentimus refreshes its rewrite rules automatically — no re-activation or manual permalink flush. The refresh is keyed to the actual set of routed documents, never runs on front-end requests, and is rate-limited, so it stays off the hot path and won't slow your site.
+* New developer reference: examples/all-hooks-reference.php catalogues every extension point Agentimus exposes, grouped by stability — Stable (the registration API to build on), Extension (output-shaping filters) and Internal (advanced tuning) — with a matching "Which hooks can my plugin use?" entry in the FAQ, so plugin authors can see at a glance what's safe to depend on.
+
 = 1.5.0 =
 * New About tab: a plain-English account of everything Agentimus does (each capability, what it publishes, and whether it ships on), a Privacy & data section grounded in the code (no server-side outbound calls, no IP or other PII, local-only activity, and a signing key that never leaves your server), the WP_Discovery Protocol it implements (with links to the spec and JSON Schema and a one-hook snippet so other plugins can extend the discovery output), and an operational FAQ.
 * Verified responses (Ed25519 / RFC 9421 signing of the discovery documents) now ship **on by default**. The keypair is generated on your server, the private key is never autoloaded and never leaves the site, and the public key directory is published at /.well-known/http-message-signatures-directory so agents can confirm the documents are really yours and unaltered. It's feature-detected (silently skipped if libsodium isn't available) and still toggleable under Settings.
@@ -219,6 +223,9 @@ There is no minified-only code. The admin interface is built from Vue 3 source i
 * Admin Discovery Hub for inspecting what agents can see, with per-item publish/suppress control.
 
 == Upgrade Notice ==
+
+= 1.6.0 =
+Companion plugins that register discovery resources or serve their own /.well-known documents now self-heal Agentimus's rewrite rules — no re-activation or manual flush needed, and front-end-safe + rate-limited so there's no performance cost. Adds a complete, tier-grouped developer hook reference.
 
 = 1.5.0 =
 Adds an About tab (capabilities, a code-grounded privacy account, and the WP_Discovery Protocol it implements). Response signing (RFC 9421) is now ON by default — the key is generated on your server, never autoloaded, and never leaves the site; it's feature-detected and still toggleable. Also fixes a privacy leak (password-protected content no longer appears in JSON-LD schema or the sitemap) and closes a User-Agent blocking bypass.
