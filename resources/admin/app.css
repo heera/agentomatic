@@ -229,6 +229,15 @@
 
 /* Readiness rail widget — gauge + stat, lives in the side panel on every tab. */
 .ar-rail-readiness { display: flex; align-items: center; gap: 15px; }
+/* The gauge + tier block doubles as a quiet link to the full readiness report:
+   button reset, no underline, just a faint brighten on hover. */
+.ar-rail-readiness--link {
+  width: 100%; margin: 0; padding: 0; border: 0; background: transparent;
+  color: inherit; text-align: left; text-decoration: none; cursor: pointer;
+  transition: filter 0.15s ease;
+}
+.ar-rail-readiness--link:hover { filter: brightness(1.08); }
+.ar-rail-readiness--link:focus-visible { outline: 2px solid var(--ar-accent); outline-offset: 3px; border-radius: 8px; }
 .ar-rail-gauge { position: relative; flex: 0 0 auto; width: 62px; height: 62px; }
 .ar-rail-gauge svg { width: 62px; height: 62px; transform: rotate(-90deg); }
 .ar-rail-gauge__track { fill: none; stroke: var(--ar-line); stroke-width: 7; }
@@ -261,12 +270,21 @@
   color: rgba(243, 240, 231, 0.45);
 }
 
-/* The three-rung strip under the gauge: name + tally, with a state dot. */
+/* The three-rung strip under the gauge: name + tally, with a state dot. Each row
+   is a quiet link that jumps to that rung's group in the Readiness tab — no
+   underline, just a subtle brighten on hover (it stays a stat panel, not a menu). */
 .ar-rungs { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 8px; }
 .ar-rung {
-  display: flex; align-items: center; gap: 9px;
   font-family: var(--ar-mono); font-size: 12px; color: rgba(243, 240, 231, 0.4);
 }
+.ar-rung__btn {
+  display: flex; align-items: center; gap: 9px; width: 100%;
+  margin: 0; padding: 0; border: 0; background: transparent;
+  font: inherit; color: inherit; text-align: left; text-decoration: none;
+  cursor: pointer; transition: filter 0.15s ease;
+}
+.ar-rung__btn:hover { filter: brightness(1.18); }
+.ar-rung__btn:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; border-radius: 4px; }
 .ar-rung__tick {
   position: relative; flex: 0 0 auto; width: 13px; height: 13px;
   border-radius: 50%; border: 1.5px solid currentColor;
@@ -279,6 +297,7 @@
 .ar-rung[data-state="current"] .ar-rung__tick::after {
   content: ""; position: absolute; inset: 3px; border-radius: 50%; background: currentColor;
 }
+@media (prefers-reduced-motion: reduce) { .ar-rung__btn { transition: none; } }
 /* The next-step CTA: always a single centred line — clip with an ellipsis rather
    than wrap, since the check label that fills it varies in length. */
 .ar-rail-next {
@@ -960,6 +979,13 @@ select.ar-input {
   .ar-modal__panel { max-height: calc(100vh - 20px); }
 }
 
+/* ---- Confirm dialog (reusable styled replacement for window.confirm) ---- */
+/* Reuses the .ar-modal shell. There's no scrolling body between head and actions,
+   so drop the adjacent borders that would otherwise stack into a double rule. */
+.ar-modal__panel--confirm { max-width: 440px; }
+.ar-modal__panel--confirm .ar-modal__head { border-bottom: 0; padding-bottom: 4px; }
+.ar-modal__panel--confirm .ar-modal__actions { border-top: 0; padding-top: 8px; }
+
 /* ---- Onboarding wizard (reuses the modal shell) ------------------------ */
 .ar-modal__panel.ar-wiz { max-width: 600px; }
 .ar-wiz__steps { display: flex; align-items: center; gap: 6px; }
@@ -1464,6 +1490,55 @@ select.ar-input {
 .ar-act-rank__bar { display: block; height: 100%; background: var(--ar-accent); border-radius: 999px; }
 .ar-act-rank__n { font-family: var(--ar-mono); font-size: 12px; color: var(--ar-ink-soft); text-align: right; min-width: 24px; }
 .ar-act-more { margin: 11px 0 0; font-size: 11px; color: var(--ar-ink-faint); }
+
+/* ---- Traffic from AI: one consolidated report card ---------------------- */
+/* Composition (sources + pages) side by side; collapses to one column when the
+   app (the inline-size container) gets narrow. */
+.ar-ai__cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px 44px; margin-top: 22px; }
+@container (max-width: 760px) { .ar-ai__cols { grid-template-columns: 1fr; gap: 20px; } }
+.ar-ai__col .ar-act-rank { margin-top: 0; }
+/* Small section labels inside the card — distinct from the serif card title. */
+.ar-ai__sub {
+  margin: 0 0 12px; font-family: var(--ar-mono); font-size: 10.5px; font-weight: 600;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--ar-ink-faint);
+  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+}
+.ar-ai__subnote {
+  font-family: var(--ar-sans); font-size: 11px; font-weight: 400; letter-spacing: 0;
+  text-transform: none; color: var(--ar-ink-faint);
+}
+.ar-ai__byday { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--ar-line); }
+
+/* ---- Traffic from AI: per-day drill-down -------------------------------- */
+.ar-aiday { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
+.ar-aiday__row {
+  display: grid; grid-template-columns: minmax(0, 1fr) 90px auto auto; align-items: center; gap: 12px;
+  width: 100%; margin: 0; padding: 6px 0; border: 0; background: transparent;
+  cursor: pointer; text-align: left; color: inherit;
+}
+.ar-aiday__row:focus-visible { outline: 2px solid var(--ar-accent); outline-offset: 2px; border-radius: 4px; }
+.ar-aiday__date { font-size: 13px; color: var(--ar-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ar-aiday__n { font-family: var(--ar-mono); font-size: 12px; color: var(--ar-ink-soft); text-align: right; min-width: 24px; }
+.ar-aiday__chev { color: var(--ar-ink-faint); opacity: 0.7; transition: transform 0.2s ease, opacity 0.15s ease; }
+.ar-aiday__row:hover .ar-aiday__chev { opacity: 1; color: var(--ar-ink-soft); }
+.ar-aiday__chev.is-open { transform: rotate(180deg); }
+.ar-aiday__detail {
+  margin: 0 0 8px 2px; padding: 6px 0 2px 12px; list-style: none; display: grid; gap: 7px;
+  border-left: 2px solid var(--ar-line);
+}
+/* Flex (not grid): a grid item defaults to justify-self:stretch, which made the
+   <code> path fill its column — and wp-admin's global code background then painted
+   a full-width bar. Flex items size to content, so the path stays a small chip. */
+.ar-aivis { display: flex; align-items: center; gap: 8px; font-size: 12.5px; padding: 1px 0; }
+.ar-aivis__src { flex: 0 0 auto; font-weight: 600; color: var(--ar-ink); white-space: nowrap; }
+.ar-aivis__arr { flex: 0 0 auto; color: var(--ar-ink-faint); }
+.ar-aivis__path {
+  flex: 0 1 auto; min-width: 0; font-family: var(--ar-mono); font-size: 11.5px; color: var(--ar-ink-soft);
+  background: var(--ar-surface-2); border: 1px solid var(--ar-line); padding: 1px 6px; border-radius: 3px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ar-aivis__n { margin-left: auto; flex: 0 0 auto; font-family: var(--ar-mono); font-size: 12px; color: var(--ar-ink-soft); }
+@media (prefers-reduced-motion: reduce) { .ar-aiday__chev { transition: opacity 0.15s ease; } }
 
 /* Recent feed */
 /* Capped, scrollable feed with a bottom fade cue (same pattern as the modal). */

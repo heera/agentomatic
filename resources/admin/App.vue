@@ -8,10 +8,11 @@ import ActivityPanel from './components/ActivityPanel.vue';
 import ReviewMenu from './components/ReviewMenu.vue';
 import OnboardingWizard from './components/OnboardingWizard.vue';
 import AboutPanel from './components/AboutPanel.vue';
+import ConfirmDialog from './components/ConfirmDialog.vue';
 
 export default {
   name: 'AgentimusApp',
-  components: { SettingsForm, ReadinessPanel, DiscoveryHub, ActivityPanel, ReviewMenu, OnboardingWizard, AboutPanel },
+  components: { SettingsForm, ReadinessPanel, DiscoveryHub, ActivityPanel, ReviewMenu, OnboardingWizard, AboutPanel, ConfirmDialog },
   props: {
     boot: { type: Object, required: true },
   },
@@ -636,6 +637,9 @@ export default {
       </transition>
     </Teleport>
 
+    <!-- One app-wide styled confirmation prompt (replaces window.confirm). -->
+    <ConfirmDialog />
+
     <OnboardingWizard
       :open="showWizard"
       :settings="settings"
@@ -716,7 +720,12 @@ export default {
       <aside class="ar__rail">
         <div class="ar-rail-card ar-rail-card--readiness">
           <p class="ar-rail-card__label">Readiness</p>
-          <div class="ar-rail-readiness">
+          <button
+            type="button"
+            class="ar-rail-readiness ar-rail-readiness--link"
+            title="Open the full readiness report"
+            @click="goTo('readiness')"
+          >
             <div class="ar-rail-gauge" role="img" :aria-label="`Readiness ${score.pct}%`">
               <svg viewBox="0 0 116 116">
                 <circle class="ar-rail-gauge__track" cx="58" cy="58" r="52" />
@@ -748,13 +757,22 @@ export default {
                 : 'first rung in progress'
               }}</span>
             </div>
-          </div>
+          </button>
 
+          <!-- Each rung is a quiet stat row that jumps to its group in the
+               Readiness tab — the report is where the per-check detail lives. -->
           <ol class="ar-rungs">
             <li v-for="r in ladder.rungs" :key="r.key" class="ar-rung" :data-state="r.state">
-              <span class="ar-rung__tick" aria-hidden="true"></span>
-              <span class="ar-rung__name">{{ r.label }}</span>
-              <span class="ar-rung__count">{{ r.pass }}/{{ r.total }}</span>
+              <button
+                type="button"
+                class="ar-rung__btn"
+                :title="`View ${r.label} checks in the readiness report`"
+                @click="goTo({ tab: 'readiness', anchor: `ar-group-${r.key}` })"
+              >
+                <span class="ar-rung__tick" aria-hidden="true"></span>
+                <span class="ar-rung__name">{{ r.label }}</span>
+                <span class="ar-rung__count">{{ r.pass }}/{{ r.total }}</span>
+              </button>
             </li>
           </ol>
 

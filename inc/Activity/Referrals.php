@@ -31,6 +31,10 @@ final class Referrals {
 	/** @var bool|null Per-request cache of the enable flag. */
 	private static $enabled = null;
 
+	/** Per-day drill-down keeps at most this many (source → page) rows; the rest
+	 *  roll into a "+N more" so a busy day never balloons the card. */
+	const DAY_TOP = 12;
+
 	/**
 	 * Fully-qualified table name (site-prefixed).
 	 *
@@ -242,6 +246,11 @@ final class Referrals {
 
 		$by_source = $wpdb->get_results( $wpdb->prepare( "SELECT source AS label, SUM(hits) AS hits FROM $table WHERE day >= %s GROUP BY source ORDER BY hits DESC LIMIT 8", $since ), ARRAY_A );
 		$top_pages = $wpdb->get_results( $wpdb->prepare( "SELECT path, SUM(hits) AS hits FROM $table WHERE day >= %s GROUP BY path ORDER BY hits DESC LIMIT 8", $since ), ARRAY_A );
+
+		// Per-day drill-down: which source landed on which page, by day. Newest day
+		// first; within a day, busiest pairing first. The store has no clock time —
+		// the day is the finest "when" there is — and nothing here identifies a person.
+		$detail = $wpdb->get_results( $wpdb->prepare( "SELECT day, source, path, SUM(hits) AS hits FROM $table WHERE day >= %s GROUP BY day, source, path ORDER BY day DESC, hits DESC", $since ), ARRAY_A );
 		// phpcs:enable WordPress.DB, PluginCheck.Security.DirectDB.UnescapedDBParameter
 
 		return array(
@@ -262,7 +271,41 @@ final class Referrals {
 				},
 				(array) $top_pages
 			),
+			'daily'    => self::bucket_days( (array) $detail ),
 		);
+	}
+
+	/**
+	 * Fold the count-ordered {day, source, path, hits} rows into a per-day list:
+	 * { date, hits (day total), rows: first DAY_TOP (source → page) pairings,
+	 * rowCount: distinct pairings that day }. Input is ordered day DESC, hits DESC,
+	 * so days come out newest-first and each day's kept rows are its busiest while
+	 * `rowCount` still reflects the full distinct total (drives a "+N more").
+	 *
+	 * @param array $rows Ordered detail rows.
+	 * @return array<int,array{date:string,hits:int,rows:array,rowCount:int}>
+	 */
+	private static function bucket_days( $rows ) {
+		$days  = array();
+		$index = array();
+		foreach ( $rows as $r ) {
+			$date = (string) $r['day'];
+			if ( ! isset( $index[ $date ] ) ) {
+				$index[ $date ] = count( $days );
+				$days[]         = array( 'date' => $date, 'hits' => 0, 'rows' => array(), 'rowCount' => 0 );
+			}
+			$i                      = $index[ $date ];
+			$days[ $i ]['hits']    += (int) $r['hits'];
+			$days[ $i ]['rowCount'] += 1;
+			if ( count( $days[ $i ]['rows'] ) < self::DAY_TOP ) {
+				$days[ $i ]['rows'][] = array(
+					'source' => (string) $r['source'],
+					'path'   => (string) $r['path'],
+					'hits'   => (int) $r['hits'],
+				);
+			}
+		}
+		return $days;
 	}
 
 	/* ---------------------------------------------------------------------- *

@@ -1,4 +1,6 @@
 <script>
+import { confirm } from '../confirm.js';
+
 export default {
   name: 'ActivityPanel',
   props: {
@@ -18,6 +20,8 @@ export default {
       dayScrollMore: false,
       // Styled hover tooltip above the bars.
       tip: { show: false, day: null, x: 0, caret: 0 },
+      // Which "AI visits by day" rows are expanded to show their source → page rows.
+      refOpenDays: [],
     };
   },
   mounted() {
@@ -58,6 +62,14 @@ export default {
     },
     refPages() {
       return (this.referrals && this.referrals.topPages) || [];
+    },
+    // Per-day AI-referral breakdown (newest first), each day carrying its
+    // source → page rows. The day is the finest "when" the store keeps.
+    refDaily() {
+      return (this.referrals && this.referrals.daily) || [];
+    },
+    refDailyMax() {
+      return Math.max(1, ...this.refDaily.map((d) => d.hits));
     },
     recent() {
       return this.data.recent || [];
@@ -254,10 +266,24 @@ export default {
       return `${Math.round(h / 24)}d ago`;
     },
     // ---- Recent feed scroll cue ------------------------------------------------
-    confirmClear() {
-      if (window.confirm('Clear the entire agent activity log? This cannot be undone.')) {
-        this.$emit('clear');
-      }
+    async confirmClear() {
+      const ok = await confirm({
+        title: 'Clear activity log?',
+        message: 'This permanently deletes the entire agent activity log. This cannot be undone.',
+        confirmLabel: 'Clear log',
+        cancelLabel: 'Cancel',
+        tone: 'danger',
+      });
+      if (ok) this.$emit('clear');
+    },
+    // ---- AI visits by day ------------------------------------------------------
+    toggleRefDay(date) {
+      const i = this.refOpenDays.indexOf(date);
+      if (i === -1) this.refOpenDays.push(date);
+      else this.refOpenDays.splice(i, 1);
+    },
+    refDayOpen(date) {
+      return this.refOpenDays.includes(date);
     },
     onFeedScroll() {
       this.updateFeedHint();
@@ -419,50 +445,86 @@ export default {
         </section>
       </div>
 
-      <!-- Traffic from AI: overview (mirrors the Endpoint-activity overview) -->
-      <section v-if="referrals" class="ar-card">
+      <!-- Traffic from AI — one report card: magnitude (KPIs), composition
+           (top sources + pages), and the timeline drill-down (which source →
+           which page, by day). All from the same aggregate-by-day store. -->
+      <section v-if="referrals" class="ar-card ar-ai">
         <h2 class="ar-card__title">Traffic from AI <span class="ar-card__tag">Last {{ data.window || 30 }} days</span></h2>
         <p class="ar-card__lead">
           Real visitors who arrived from an AI assistant (ChatGPT, Perplexity, Gemini…). Counted on your
           own site — no IP, nothing sent anywhere. Some AI visits can’t be detected, so read this as a
           floor: at least this many.
         </p>
+
         <div class="ar-wd-stats ar-act-stats ar-act-stats--3">
           <div class="ar-wd-stat"><strong>{{ refTotals.today }}</strong><span>today</span></div>
           <div class="ar-wd-stat"><strong>{{ refTotals.window }}</strong><span>{{ data.window || 30 }} days</span></div>
           <div class="ar-wd-stat"><strong>{{ refSources.length }}</strong><span>sources</span></div>
         </div>
-        <p v-if="!refTotals.window" class="ar-wd-empty">
+
+        <template v-if="refTotals.window">
+          <!-- Composition: who sent traffic, and where it landed. -->
+          <div class="ar-ai__cols">
+            <div class="ar-ai__col">
+              <h3 class="ar-ai__sub">Top sources</h3>
+              <ul class="ar-act-rank">
+                <li v-for="s in refSources" :key="s.label">
+                  <span class="ar-act-rank__label">{{ s.label }}</span>
+                  <span class="ar-act-rank__track"><span class="ar-act-rank__bar" :style="{ width: pct(s.hits, listMax(refSources)) }"></span></span>
+                  <span class="ar-act-rank__n">{{ s.hits }}</span>
+                </li>
+              </ul>
+            </div>
+            <div class="ar-ai__col">
+              <h3 class="ar-ai__sub">Top landing pages</h3>
+              <ul v-if="refPages.length" class="ar-act-rank">
+                <li v-for="p in refPages" :key="p.path">
+                  <span class="ar-act-rank__label"><code>{{ p.path }}</code></span>
+                  <span class="ar-act-rank__track"><span class="ar-act-rank__bar" :style="{ width: pct(p.hits, listMax(refPages)) }"></span></span>
+                  <span class="ar-act-rank__n">{{ p.hits }}</span>
+                </li>
+              </ul>
+              <p v-else class="ar-wd-empty">No pages yet.</p>
+            </div>
+          </div>
+
+          <!-- Timeline: the same visits by day. Expand a day to see which source
+               landed on which page — the day is the finest "when" stored. -->
+          <div v-if="refDaily.length" class="ar-ai__byday">
+            <h3 class="ar-ai__sub">By day <span class="ar-ai__subnote">click a day — which source → which page, no times stored</span></h3>
+            <ul class="ar-aiday">
+              <li v-for="d in refDaily" :key="d.date" class="ar-aiday__item">
+                <button
+                  type="button"
+                  class="ar-aiday__row"
+                  :aria-expanded="refDayOpen(d.date)"
+                  :title="refDayOpen(d.date) ? 'Hide this day' : 'Show which source landed on which page'"
+                  @click="toggleRefDay(d.date)"
+                >
+                  <span class="ar-aiday__date">{{ dateLabel(d.date) }}</span>
+                  <span class="ar-act-rank__track"><span class="ar-act-rank__bar" :style="{ width: pct(d.hits, refDailyMax) }"></span></span>
+                  <span class="ar-aiday__n">{{ d.hits }}</span>
+                  <svg class="ar-aiday__chev" :class="{ 'is-open': refDayOpen(d.date) }" viewBox="0 0 16 16" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6l4 4 4-4" /></svg>
+                </button>
+                <ul v-show="refDayOpen(d.date)" class="ar-aiday__detail">
+                  <li v-for="(r, i) in d.rows" :key="i" class="ar-aivis">
+                    <span class="ar-aivis__src">{{ r.source }}</span>
+                    <span class="ar-aivis__arr" aria-hidden="true">→</span>
+                    <code class="ar-aivis__path">{{ r.path }}</code>
+                    <span class="ar-aivis__n">{{ r.hits }}</span>
+                  </li>
+                  <li v-if="d.rowCount > d.rows.length" class="ar-act-more">+{{ d.rowCount - d.rows.length }} more</li>
+                </ul>
+              </li>
+            </ul>
+          </div>
+        </template>
+
+        <p v-else class="ar-wd-empty">
           No AI-referred visits recorded yet. When someone arrives from ChatGPT, Perplexity and the like,
           it’ll show here.
         </p>
       </section>
-
-      <!-- Traffic from AI: breakdown (mirrors Top clients / By endpoint) -->
-      <div v-if="referrals && refTotals.window" class="ar-wd-cols">
-        <section class="ar-card">
-          <h2 class="ar-card__title">AI sources <span class="ar-card__tag">Last {{ data.window || 30 }} days</span></h2>
-          <ul class="ar-act-rank">
-            <li v-for="s in refSources" :key="s.label">
-              <span class="ar-act-rank__label">{{ s.label }}</span>
-              <span class="ar-act-rank__track"><span class="ar-act-rank__bar" :style="{ width: pct(s.hits, listMax(refSources)) }"></span></span>
-              <span class="ar-act-rank__n">{{ s.hits }}</span>
-            </li>
-          </ul>
-        </section>
-
-        <section class="ar-card">
-          <h2 class="ar-card__title">Top landing pages <span class="ar-card__tag">Last {{ data.window || 30 }} days</span></h2>
-          <ul v-if="refPages.length" class="ar-act-rank">
-            <li v-for="p in refPages" :key="p.path">
-              <span class="ar-act-rank__label"><code>{{ p.path }}</code></span>
-              <span class="ar-act-rank__track"><span class="ar-act-rank__bar" :style="{ width: pct(p.hits, listMax(refPages)) }"></span></span>
-              <span class="ar-act-rank__n">{{ p.hits }}</span>
-            </li>
-          </ul>
-          <p v-else class="ar-wd-empty">No pages yet.</p>
-        </section>
-      </div>
 
       <!-- Recent requests (latest, live — static) -->
       <section class="ar-card">
