@@ -68,10 +68,15 @@ namespace {
 	if ( ! function_exists( 'get_site_icon_url' ) )     { function get_site_icon_url() { return ''; } }
 	if ( ! function_exists( 'get_privacy_policy_url' ) ) { function get_privacy_policy_url() { return ''; } }
 	if ( ! function_exists( 'get_feed_link' ) )         { function get_feed_link( $feed = '' ) { return 'https://example.test/feed/'; } }
-	if ( ! function_exists( 'apply_filters' ) )         { function apply_filters( $tag, $value = null ) { return $value; } }
+	// Minimal-but-functional filter registry so tests can simulate a third-party
+	// plugin hooking a filter (e.g. the robustness suite feeds malformed values).
+	// With no filters registered it behaves exactly like the old passthrough.
+	$GLOBALS['_af_filters'] = array();
+	if ( ! function_exists( 'apply_filters' ) )         { function apply_filters( $tag, $value = null ) { $extra = array_slice( func_get_args(), 2 ); if ( ! empty( $GLOBALS['_af_filters'][ $tag ] ) ) { foreach ( $GLOBALS['_af_filters'][ $tag ] as $cb ) { $value = call_user_func_array( $cb, array_merge( array( $value ), $extra ) ); } } return $value; } }
 	if ( ! function_exists( 'do_action' ) )             { function do_action( $tag ) { /* noop */ } }
 	if ( ! function_exists( 'add_action' ) )            { function add_action() { return true; } }
-	if ( ! function_exists( 'add_filter' ) )            { function add_filter() { return true; } }
+	if ( ! function_exists( 'add_filter' ) )            { function add_filter( $tag, $cb, $priority = 10, $args = 1 ) { $GLOBALS['_af_filters'][ $tag ][] = $cb; return true; } }
+	if ( ! function_exists( 'remove_all_filters' ) )    { function remove_all_filters( $tag = false ) { if ( false === $tag ) { $GLOBALS['_af_filters'] = array(); } else { unset( $GLOBALS['_af_filters'][ $tag ] ); } return true; } }
 	if ( ! function_exists( 'did_action' ) )            { function did_action( $tag ) { return ! empty( $GLOBALS['_af_did_actions'][ $tag ] ) ? 1 : 0; } }
 	// Stateful option store so tests can set values (e.g. suppressed_resources)
 	// and read them back. Empty by default, so it behaves exactly like returning
@@ -99,7 +104,7 @@ namespace {
 	if ( ! function_exists( 'get_the_modified_date' ) ) { function get_the_modified_date( $format = '', $p = null ) { return '2026-01-02T00:00:00+00:00'; } }
 	if ( ! function_exists( 'get_the_category' ) )      { function get_the_category( $id = false ) { return isset( $GLOBALS['_af_categories'] ) ? (array) $GLOBALS['_af_categories'] : array(); } }
 	if ( ! function_exists( 'get_category_link' ) )     { function get_category_link( $cat ) { return 'https://example.com/cat/'; } }
-	function _af_reset_options() { $GLOBALS['_af_options'] = array(); $GLOBALS['_af_did_actions'] = array(); $GLOBALS['_af_posts'] = array(); $GLOBALS['_af_is_admin'] = false; $GLOBALS['_af_flush_count'] = 0; unset( $GLOBALS['_af_available_post_types'], $GLOBALS['_af_current_post_id'], $GLOBALS['_af_is_singular'], $GLOBALS['_af_is_front_page'], $GLOBALS['_af_categories'] ); }
+	function _af_reset_options() { $GLOBALS['_af_options'] = array(); $GLOBALS['_af_filters'] = array(); $GLOBALS['_af_did_actions'] = array(); $GLOBALS['_af_posts'] = array(); $GLOBALS['_af_is_admin'] = false; $GLOBALS['_af_flush_count'] = 0; unset( $GLOBALS['_af_available_post_types'], $GLOBALS['_af_current_post_id'], $GLOBALS['_af_is_singular'], $GLOBALS['_af_is_front_page'], $GLOBALS['_af_categories'] ); }
 	// Always-miss transient stubs so cached endpoint bodies (e.g. security.txt)
 	// recompute deterministically in tests.
 	if ( ! function_exists( 'get_transient' ) )         { function get_transient( $k ) { return false; } }

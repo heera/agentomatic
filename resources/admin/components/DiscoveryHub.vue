@@ -35,8 +35,8 @@ export default {
     // "Found automatically" group header (so engine + its results sit together).
     engineChips() {
       return this.adapters.map((a) => ({
-        label: a.title.replace(' (auto-discovery)', '').replace('WordPress ', ''),
-        ok: a.available,
+        label: String((a && (a.title || a.id)) || 'Adapter').replace(' (auto-discovery)', '').replace('WordPress ', ''),
+        ok: !!(a && a.available),
       }));
     },
     adapters() {
@@ -70,7 +70,7 @@ export default {
   },
   methods: {
     sourceLabel(source) {
-      return { file: 'ON DISK', managed: 'MANAGED', generated: 'GENERATED' }[source] || source.toUpperCase();
+      return { file: 'ON DISK', managed: 'MANAGED', generated: 'GENERATED' }[source] || String(source || 'SOURCE').toUpperCase();
     },
   },
 };
@@ -254,8 +254,8 @@ export default {
     <section v-if="notices.length" id="ar-wd-validation" class="ar-card">
       <h2 class="ar-card__title">Registration status</h2>
       <ul class="ar-wd-notices">
-        <li v-for="(n, i) in notices" :key="i" class="ar-wd-notice" :class="`is-${n.level}`">
-          <span class="ar-wd-notice__tag">{{ n.level.toUpperCase() }}</span>
+        <li v-for="(n, i) in notices" :key="i" class="ar-wd-notice" :class="`is-${n.level || 'info'}`">
+          <span class="ar-wd-notice__tag">{{ String(n.level || 'info').toUpperCase() }}</span>
           <span>{{ n.message }}</span>
         </li>
       </ul>

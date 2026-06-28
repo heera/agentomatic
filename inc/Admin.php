@@ -377,7 +377,7 @@ final class Admin {
 				'version'   => Discovery\Envelope::SPEC_VERSION,
 				'hook'      => \AGENTIMUS_CANONICAL_HOOK,
 				'specUrl'   => 'https://github.com/heera/wp-discovery-protocol',
-				'schemaUrl' => apply_filters( 'agentimus_schema_url', Discovery\Envelope::SCHEMA_BASE . '/discovery/' . Discovery\Envelope::SPEC_VERSION . '/discovery.schema.json' ),
+				'schemaUrl' => Discovery\Envelope::schema_url(),
 			),
 			'onboarded'   => $this->is_onboarded(),
 			'llmsFullEstimate' => Content::estimate_full_size( $this->settings ),

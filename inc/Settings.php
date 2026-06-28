@@ -88,7 +88,10 @@ final class Settings {
 		 *
 		 * @param array $defaults Default settings.
 		 */
-		return apply_filters( 'agentimus_default_settings', $defaults );
+		$filtered = apply_filters( 'agentimus_default_settings', $defaults );
+		// A misbehaving plugin must not be able to hand back a non-array here: the
+		// whole admin app and every endpoint resolve their config through this.
+		return is_array( $filtered ) ? $filtered : $defaults;
 	}
 
 	/**
@@ -190,7 +193,10 @@ final class Settings {
 		 *
 		 * @param array $all Resolved settings.
 		 */
-		return apply_filters( 'agentimus_settings', $all );
+		$filtered = apply_filters( 'agentimus_settings', $all );
+		// Keep the valid resolved array if a filter mangles the shape — this feeds
+		// wp_localize_script (the admin boot) and every reader of the settings.
+		return is_array( $filtered ) ? $filtered : $all;
 	}
 
 	/**
@@ -485,7 +491,10 @@ final class Settings {
 		 * @param array $clean Sanitised settings.
 		 * @param array $input Raw input.
 		 */
-		return apply_filters( 'agentimus_sanitize_settings', $clean, $input );
+		$filtered = apply_filters( 'agentimus_sanitize_settings', $clean, $input );
+		// Never persist a non-array: this result is written straight to the option,
+		// and a corrupt option would break every subsequent read + the admin.
+		return is_array( $filtered ) ? $filtered : $clean;
 	}
 
 	/**

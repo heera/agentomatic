@@ -89,7 +89,9 @@ final class Schema {
 			 * @param \WP_Post   $post Post.
 			 */
 			$node = apply_filters( 'agentimus_schema_for_post', $node, $post );
-			if ( ! empty( $node ) ) {
+			// is_array(), not just ! empty(): a scalar return (string/number) passes
+			// ! empty() but would corrupt the @graph / break json_encode downstream.
+			if ( is_array( $node ) && ! empty( $node ) ) {
 				$graph[] = $node;
 			}
 			$graph[] = $this->breadcrumb_node();
@@ -108,7 +110,10 @@ final class Schema {
 		 *
 		 * @param array $graph Schema nodes.
 		 */
-		$graph = apply_filters( 'agentimus_schema_graph', $graph );
+		$filtered = apply_filters( 'agentimus_schema_graph', $graph );
+		// Fall back to the valid graph if a filter hands back a non-array, then keep
+		// only array nodes — the @graph that reaches json_encode is always well-formed.
+		$graph = array_values( array_filter( is_array( $filtered ) ? $filtered : $graph, 'is_array' ) );
 		if ( empty( $graph ) ) {
 			return;
 		}

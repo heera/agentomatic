@@ -176,7 +176,7 @@ final class Envelope {
 			 *
 			 * @param string $url Schema URL.
 			 */
-			'$schema'      => apply_filters( 'agentimus_schema_url', self::SCHEMA_BASE . '/discovery/' . self::SPEC_VERSION . '/discovery.schema.json' ),
+			'$schema'      => self::schema_url(),
 			'spec_version' => self::SPEC_VERSION,
 			'site'         => $this->site(),
 			'identity'     => $this->identity(),
@@ -196,7 +196,25 @@ final class Envelope {
 		 * @param array    $envelope  The envelope.
 		 * @param Registry $registry  The collector.
 		 */
-		return apply_filters( 'agentimus_envelope', $envelope, $this->registry );
+		$filtered = apply_filters( 'agentimus_envelope', $envelope, $this->registry );
+		// The envelope is the discovery document: it's json_encoded for the public
+		// endpoints and array-accessed by the admin Discovery tab. A filter that
+		// returns a non-array must not be able to corrupt either — keep the valid one.
+		return is_array( $filtered ) ? $filtered : $envelope;
+	}
+
+	/**
+	 * The canonical JSON Schema URL, filterable but always a real URL string — an
+	 * empty / non-string filter return falls back to the built-in canonical URL so
+	 * the `$schema` key never ends up null or malformed in discovery.json (or on the
+	 * admin About tab, which reuses this).
+	 *
+	 * @return string
+	 */
+	public static function schema_url() {
+		$default = self::SCHEMA_BASE . '/discovery/' . self::SPEC_VERSION . '/discovery.schema.json';
+		$url     = esc_url_raw( (string) apply_filters( 'agentimus_schema_url', $default ) );
+		return '' !== $url ? $url : $default;
 	}
 
 	/**

@@ -24,7 +24,7 @@ export default {
   },
   methods: {
     tagLabel(status) {
-      return { pass: 'PASS', warn: 'WARN', fail: 'FAIL' }[status] || status.toUpperCase();
+      return { pass: 'PASS', warn: 'WARN', fail: 'FAIL' }[status] || String(status || 'CHECK').toUpperCase();
     },
     // Fetch the real endpoints from this browser and grade what an agent receives.
     // The server makes no request — this runs here, same-origin, on click only.
@@ -87,6 +87,7 @@ export default {
 
     <div
       v-for="g in groups"
+      :id="`ar-group-${g.key}`"
       :key="g.key"
       class="ar-checkgroup"
       :class="`is-${g.status}`"

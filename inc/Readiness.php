@@ -59,7 +59,50 @@ final class Readiness {
 		 * @param array    $checks   Check rows.
 		 * @param Settings $settings Settings store.
 		 */
-		return apply_filters( 'agentimus_readiness_checks', $checks, $this->settings );
+		return $this->normalize( apply_filters( 'agentimus_readiness_checks', $checks, $this->settings ) );
+	}
+
+	/**
+	 * Guarantee every row is well-formed before it reaches the UI. Third-party
+	 * checks appended via `agentimus_readiness_checks` may omit fields or use a
+	 * different convention (e.g. a boolean `pass`/`ok` instead of a `status`
+	 * string) — and a single malformed row must never blank the Readiness screen
+	 * or skew the score. An unrecognised status becomes `warn`: surfaced for
+	 * attention rather than silently counted as a pass.
+	 *
+	 * @param mixed $checks Raw checks from the filter.
+	 * @return array<int,array<string,mixed>>
+	 */
+	private function normalize( $checks ) {
+		$valid = array( 'pass', 'warn', 'fail' );
+		$out   = array();
+		foreach ( (array) $checks as $c ) {
+			if ( ! is_array( $c ) ) {
+				continue;
+			}
+			$id = isset( $c['id'] ) ? (string) $c['id'] : '';
+			if ( '' === $id ) {
+				continue; // A check with no id can't be anchored or deduped — drop it.
+			}
+			$status = isset( $c['status'] ) ? (string) $c['status'] : '';
+			if ( ! in_array( $status, $valid, true ) ) {
+				// Accept a boolean pass/ok convention; otherwise flag for attention.
+				if ( isset( $c['pass'] ) || isset( $c['ok'] ) ) {
+					$status = ( ! empty( $c['pass'] ) || ! empty( $c['ok'] ) ) ? 'pass' : 'fail';
+				} else {
+					$status = 'warn';
+				}
+			}
+			$out[] = array(
+				'id'     => $id,
+				'label'  => ( isset( $c['label'] ) && '' !== (string) $c['label'] ) ? (string) $c['label'] : $id,
+				'status' => $status,
+				'detail' => isset( $c['detail'] ) ? (string) $c['detail'] : '',
+				'fix'    => isset( $c['fix'] ) ? (string) $c['fix'] : '',
+				'action' => ( isset( $c['action'] ) && is_array( $c['action'] ) ) ? $c['action'] : null,
+			);
+		}
+		return $out;
 	}
 
 	/**
