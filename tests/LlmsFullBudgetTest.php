@@ -3,7 +3,7 @@
  * /llms-full.txt size/perf guardrails — the pure logic that protects a large
  * site from an unbounded cold-cache generation:
  *   - the llms_full_max_kb clamp (Settings), and
- *   - the wall-clock deadline derivation (Endpoints).
+ *   - the wall-clock deadline derivation (LlmsText).
  *
  * The byte-budget loop, per-item cap and truncation note are exercised end-to-end
  * against a real multi-type site (curl /llms-full.txt with a tiny budget); they
@@ -14,7 +14,7 @@
 
 namespace Agentimus\Tests;
 
-use Agentimus\Endpoints;
+use Agentimus\LlmsText;
 use Agentimus\Settings;
 use PHPUnit\Framework\TestCase;
 
@@ -46,7 +46,7 @@ final class LlmsFullBudgetTest extends TestCase {
 		$this->assertSame( 2048, ( new Settings() )->sanitize( array( 'llms_full_max_kb' => 2048 ) )['llms_full_max_kb'] );
 	}
 
-	/* -- The wall-clock deadline (Endpoints::generation_deadline) --------- */
+	/* -- The wall-clock deadline (LlmsText::generation_deadline) ---------- */
 
 	/**
 	 * @dataProvider deadlines
@@ -55,11 +55,11 @@ final class LlmsFullBudgetTest extends TestCase {
 		$orig = ini_get( 'max_execution_time' );
 		ini_set( 'max_execution_time', (string) $max_execution_time );
 
-		$endpoints = new Endpoints( new Settings() );
-		$method    = new \ReflectionMethod( Endpoints::class, 'generation_deadline' );
+		$llms   = new LlmsText( new Settings() );
+		$method = new \ReflectionMethod( LlmsText::class, 'generation_deadline' );
 		$method->setAccessible( true );
 
-		$this->assertSame( (float) $expected, $method->invoke( $endpoints ) );
+		$this->assertSame( (float) $expected, $method->invoke( $llms ) );
 
 		ini_set( 'max_execution_time', (string) $orig );
 	}

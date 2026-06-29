@@ -204,7 +204,7 @@ final class Readiness {
 			return $this->row( 'llms_words', __( '/llms.txt substance', 'agentimus' ), 'pass', __( 'The /llms.txt index is off, so there is nothing to measure.', 'agentimus' ) );
 		}
 
-		return $this->llms_words_row( self::word_count( ( new Endpoints( $this->settings ) )->llms_txt() ) );
+		return $this->llms_words_row( self::word_count( ( new LlmsText( $this->settings ) )->llms_txt() ) );
 	}
 
 	/**
