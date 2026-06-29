@@ -165,7 +165,7 @@ Yes. The discovery document implements the **WP_Discovery Protocol**, an openly-
 == Screenshots ==
 
 1. Dashboard — your readiness score plus a first-party log of which AI agents and crawlers fetched your endpoints (no IP logging).
-2. Settings — your public identity, a security.txt contact, and one toggle per agent-readiness signal.
+2. Settings — a tidy, tabbed control panel; the Discovery section gives you a toggle for each agent-readiness signal, plus experimental browser tools (WebMCP) that let an in-browser AI agent call your site search.
 3. Readiness report — a plain-English pass/warn checklist of what's enabled and what's still missing.
 4. Discovery Hub — every plugin's capabilities aggregated into one document, with per-item publish/suppress control.
 5. Crawler policy & scanner blocking — declare your content-usage signals, block AI-training crawlers by name, and turn away spoofed or scanner traffic.

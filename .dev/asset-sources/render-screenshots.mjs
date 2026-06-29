@@ -65,30 +65,33 @@ await fullTab('#dashboard', 'screenshot-1');
 await fullTab('#readiness', 'screenshot-3');
 await fullTab('#discovery', 'screenshot-4');
 
-// Shot 2 — Settings: Identity + Security + Features (down to the Features card).
+// The Settings page is now a tabbed panel; pick a group by clicking its sub-nav tab.
+async function settingsGroup(page, label) {
+  await page.waitForSelector('.ar-subnav__item');
+  await page.evaluate((l) => {
+    const b = [...document.querySelectorAll('.ar-subnav__item')].find((x) => new RegExp(l, 'i').test(x.textContent));
+    if (b) b.click();
+  }, label);
+  await new Promise((r) => setTimeout(r, 350));
+}
+
+// Shot 2 — Settings ▸ Discovery: a toggle per readiness signal + Browser tools (WebMCP).
 {
   const page = await open('#settings');
-  await page.waitForSelector('#ar-sec-features');
-  const h = await page.evaluate(() => document.getElementById('ar-sec-features').getBoundingClientRect().bottom);
+  await settingsGroup(page, 'discovery');
+  await page.waitForSelector('#ar-sec-webmcp');
+  const h = await page.evaluate(() => document.getElementById('ar-sec-webmcp').getBoundingClientRect().bottom);
   await page.screenshot({ path: `${OUT}/screenshot-2.png`, clip: clip(W, h + 22), captureBeyondViewport: true });
   console.log('screenshot-2', Math.round(h + 22));
   await page.close();
 }
 
-// Shot 5 — Crawler policy + Block scanners (hide the other cards so they sit under the nav).
+// Shot 5 — Settings ▸ AI access: crawler policy + scanner blocking (the only two cards in the group).
 {
   const page = await open('#settings');
+  await settingsGroup(page, 'ai access');
   await page.waitForSelector('#ar-sec-blocking');
-  const h = await page.evaluate(() => {
-    ['ar-sec-identity', 'ar-sec-security', 'ar-sec-features'].forEach((id) => {
-      const el = document.getElementById(id);
-      if (el) el.style.display = 'none';
-    });
-    const all = [...document.querySelectorAll('.ar__main .ar-card')];
-    const bi = all.indexOf(document.getElementById('ar-sec-blocking'));
-    all.forEach((el, i) => { if (i > bi) el.style.display = 'none'; });
-    return document.getElementById('ar-sec-blocking').getBoundingClientRect().bottom;
-  });
+  const h = await page.evaluate(() => document.getElementById('ar-sec-blocking').getBoundingClientRect().bottom);
   await page.screenshot({ path: `${OUT}/screenshot-5.png`, clip: clip(W, h + 22), captureBeyondViewport: true });
   console.log('screenshot-5', Math.round(h + 22));
   await page.close();
