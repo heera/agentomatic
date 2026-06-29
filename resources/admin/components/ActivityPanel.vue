@@ -21,6 +21,8 @@ export default {
       // opens this focused overlay with the day's breakdown + full request log.
       dayModal: { open: false, loading: false, error: '', date: '', total: 0, rows: [], capped: false },
       dayScrollMore: false,
+      // Whether each breakdown column is unfolded past its top-N summary (per day).
+      dayExpand: { clients: false, endpoints: false },
       // Styled hover tooltip above the bars.
       tip: { show: false, day: null, x: 0, caret: 0 },
       // Which "AI visits by day" rows are expanded to show their source → page rows.
@@ -106,6 +108,24 @@ export default {
       if (!this.dayModal.date) return null;
       return this.daily.find((d) => d.date === this.dayModal.date) || null;
     },
+    // Full per-day breakdown, derived from the already-loaded request log (each row
+    // carries its client + endpoint) — so "+N more" can unfold the complete list
+    // with no extra fetch. On a capped day (>500 hits) this covers the rows we hold.
+    fullDayClients() {
+      return this.tallyDay('agent');
+    },
+    fullDayEndpoints() {
+      return this.tallyDay('endpoint');
+    },
+    // What each column renders: the full list when expanded, else the top-N summary.
+    shownClients() {
+      if (!this.modalDetail) return [];
+      return this.dayExpand.clients ? this.fullDayClients : this.modalDetail.clients;
+    },
+    shownEndpoints() {
+      if (!this.modalDetail) return [];
+      return this.dayExpand.endpoints ? this.fullDayEndpoints : this.modalDetail.endpoints;
+    },
     // Days with activity — the set the modal's prev/next/dropdown move through.
     hitDays() {
       return this.daily.filter((d) => d.hits > 0);
@@ -148,10 +168,20 @@ export default {
         if (el) el.focus();
       });
     },
+    // Tally the loaded day-log rows by a field into busiest-first {label, hits}.
+    tallyDay(field) {
+      const counts = new Map();
+      for (const r of (this.dayModal.rows || [])) {
+        const label = (r && r[field]) || '';
+        counts.set(label, (counts.get(label) || 0) + 1);
+      }
+      return Array.from(counts, ([label, hits]) => ({ label, hits })).sort((a, b) => b.hits - a.hits);
+    },
     // Load (or switch to) a day inside the open modal. Guards a stale response.
     async loadDay(date) {
       this.dayModal = { open: true, loading: true, error: '', date, total: 0, rows: [], capped: false };
       this.dayScrollMore = false;
+      this.dayExpand = { clients: false, endpoints: false };
       if (!this.api || !this.api.getActivityDay) {
         this.dayModal.loading = false;
         this.dayModal.error = 'Unable to load requests in this context.';
@@ -623,24 +653,32 @@ export default {
                   <div class="ar-daybreak__col">
                     <h3 class="ar-daybreak__h">By client <span class="ar-daybreak__n">{{ modalDetail.clientCount }}</span></h3>
                     <ul class="ar-act-rank">
-                      <li v-for="a in modalDetail.clients" :key="a.label">
+                      <li v-for="a in shownClients" :key="a.label">
                         <span class="ar-act-rank__label">{{ a.label }}</span>
-                        <span class="ar-act-rank__track"><span class="ar-act-rank__bar" :style="{ width: pct(a.hits, listMax(modalDetail.clients)) }"></span></span>
+                        <span class="ar-act-rank__track"><span class="ar-act-rank__bar" :style="{ width: pct(a.hits, listMax(shownClients)) }"></span></span>
                         <span class="ar-act-rank__n">{{ a.hits }}</span>
                       </li>
                     </ul>
-                    <p v-if="modalDetail.clientCount > modalDetail.clients.length" class="ar-act-more">+{{ modalDetail.clientCount - modalDetail.clients.length }} more</p>
+                    <button v-if="modalDetail.clientCount > modalDetail.clients.length" type="button" class="ar-act-more" :aria-expanded="dayExpand.clients" @click="dayExpand.clients = !dayExpand.clients">
+                      <span>{{ dayExpand.clients ? 'Show less' : '+' + (modalDetail.clientCount - modalDetail.clients.length) + ' more' }}</span>
+                      <span class="ar-act-more__caret" aria-hidden="true">{{ dayExpand.clients ? '▴' : '▾' }}</span>
+                    </button>
+                    <p v-if="dayExpand.clients && dayModal.capped" class="ar-act-more-note">from the last {{ dayModal.rows.length }} requests this day</p>
                   </div>
                   <div class="ar-daybreak__col">
                     <h3 class="ar-daybreak__h">By endpoint <span class="ar-daybreak__n">{{ modalDetail.endpointCount }}</span></h3>
                     <ul class="ar-act-rank">
-                      <li v-for="e in modalDetail.endpoints" :key="e.label">
+                      <li v-for="e in shownEndpoints" :key="e.label">
                         <span class="ar-act-rank__label"><code>{{ e.label }}</code></span>
-                        <span class="ar-act-rank__track"><span class="ar-act-rank__bar" :style="{ width: pct(e.hits, listMax(modalDetail.endpoints)) }"></span></span>
+                        <span class="ar-act-rank__track"><span class="ar-act-rank__bar" :style="{ width: pct(e.hits, listMax(shownEndpoints)) }"></span></span>
                         <span class="ar-act-rank__n">{{ e.hits }}</span>
                       </li>
                     </ul>
-                    <p v-if="modalDetail.endpointCount > modalDetail.endpoints.length" class="ar-act-more">+{{ modalDetail.endpointCount - modalDetail.endpoints.length }} more</p>
+                    <button v-if="modalDetail.endpointCount > modalDetail.endpoints.length" type="button" class="ar-act-more" :aria-expanded="dayExpand.endpoints" @click="dayExpand.endpoints = !dayExpand.endpoints">
+                      <span>{{ dayExpand.endpoints ? 'Show less' : '+' + (modalDetail.endpointCount - modalDetail.endpoints.length) + ' more' }}</span>
+                      <span class="ar-act-more__caret" aria-hidden="true">{{ dayExpand.endpoints ? '▴' : '▾' }}</span>
+                    </button>
+                    <p v-if="dayExpand.endpoints && dayModal.capped" class="ar-act-more-note">from the last {{ dayModal.rows.length }} requests this day</p>
                   </div>
                 </div>
 
