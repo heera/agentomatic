@@ -21,6 +21,19 @@ export default {
     livePass() {
       return this.live ? this.live.filter((r) => r.ok).length : 0;
     },
+    // Open while a run is in flight or its results are still on screen.
+    liveOpen() {
+      return !!(this.live || this.liveRunning);
+    },
+  },
+  watch: {
+    // Land focus on the dialog when it opens so Esc closes it and it reads as modal.
+    liveOpen(open) {
+      if (!open) return;
+      this.$nextTick(() => {
+        if (this.$refs.liveDialog) this.$refs.liveDialog.focus();
+      });
+    },
   },
   methods: {
     tagLabel(status) {
@@ -36,6 +49,12 @@ export default {
       } finally {
         this.liveRunning = false;
       }
+    },
+    // Dismiss the results. A no-op mid-run (the fetch finishes in ~1s) so a stray
+    // Esc/backdrop click can't close an empty shell that's about to repopulate.
+    closeLive() {
+      if (this.liveRunning) return;
+      this.live = null;
     },
   },
 };
@@ -53,36 +72,6 @@ export default {
           {{ refreshing ? 'Running…' : 'Re-run' }}
         </button>
       </div>
-    </div>
-
-    <div v-if="live || liveRunning" class="ar-live">
-      <div class="ar-live__head">
-        <h3 class="ar-live__title">What agents actually receive</h3>
-        <div class="ar-live__meta">
-          <span v-if="live" class="ar-live__tally" :class="{ 'is-bad': livePass < live.length }">
-            {{ livePass }}/{{ live.length }} OK
-          </span>
-          <button
-            v-if="live && !liveRunning"
-            type="button"
-            class="ar-live__close"
-            aria-label="Dismiss live results"
-            @click="live = null"
-          >&times;</button>
-        </div>
-      </div>
-      <p class="ar-live__lead">
-        Fetched from your browser through the public URL — so this reflects what an agent gets
-        (including anything a CDN serves), not just your settings. The server makes no request.
-      </p>
-      <ul v-if="live" class="ar-live__list">
-        <li v-for="r in live" :key="r.key" class="ar-live__row" :class="{ 'is-bad': !r.ok }">
-          <span class="ar-live__dot" aria-hidden="true"></span>
-          <span class="ar-live__label">{{ r.label }}</span>
-          <span class="ar-live__detail">{{ r.detail }}</span>
-        </li>
-      </ul>
-      <p v-else class="ar-live__running">Fetching your endpoints…</p>
     </div>
 
     <div
@@ -126,5 +115,54 @@ export default {
         </li>
       </ul>
     </div>
+
+    <!-- Verify-live result: a focused overlay; the report behind never reflows. -->
+    <Teleport to="body">
+      <transition name="ar-modal">
+        <div v-if="liveOpen" class="ar-modal" @click.self="closeLive">
+          <div
+            ref="liveDialog"
+            class="ar-modal__panel ar-modal__panel--live"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="ar-live-title"
+            tabindex="-1"
+            @keydown.esc="closeLive"
+          >
+            <div class="ar-modal__head">
+              <div class="ar-live-head">
+                <h2 id="ar-live-title" class="ar-modal__title">What agents actually receive</h2>
+                <span
+                  v-if="live"
+                  class="ar-live__tally"
+                  :class="{ 'is-bad': livePass < live.length }"
+                >{{ livePass }}/{{ live.length }} OK</span>
+              </div>
+              <p class="ar-modal__lead">
+                Fetched from your browser through the public URL — so this reflects what an agent gets
+                (including anything a CDN serves), not just your settings. The server makes no request.
+              </p>
+            </div>
+
+            <div class="ar-modal__body">
+              <div class="ar-modal__scroll">
+                <ul v-if="live" class="ar-live__list">
+                  <li v-for="r in live" :key="r.key" class="ar-live__row" :class="{ 'is-bad': !r.ok }">
+                    <span class="ar-live__dot" aria-hidden="true"></span>
+                    <span class="ar-live__label">{{ r.label }}</span>
+                    <span class="ar-live__detail">{{ r.detail }}</span>
+                  </li>
+                </ul>
+                <p v-else class="ar-live__running">Fetching your endpoints…</p>
+              </div>
+            </div>
+
+            <div class="ar-modal__actions">
+              <button type="button" class="ar-btn ar-btn--ghost" :disabled="liveRunning" @click="closeLive">Close</button>
+            </div>
+          </div>
+        </div>
+      </transition>
+    </Teleport>
   </section>
 </template>
