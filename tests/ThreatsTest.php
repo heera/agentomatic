@@ -208,4 +208,46 @@ final class ThreatsTest extends TestCase {
 		$this->assertSame( '', $s['action'] );
 		$this->assertSame( 'no-ua', $s['reason'] );
 	}
+
+	/* -- UA-variant merge (one block token = one decision) --------------- */
+
+	const NEWBOT_V1 = 'Mozilla/5.0 (compatible; NewBot/1.0; +http://example.test/bot)';
+	const NEWBOT_V2 = 'Mozilla/5.0 (compatible; NewBot/2.0; +http://example.test/bot)';
+
+	public function test_ua_variants_sharing_a_token_merge_into_one_row() {
+		// Two UA strings of the same client (a version bump) both resolve to the token
+		// "newbot", so one Block denies both — they must read as a single decision.
+		$r = $this->analyze(
+			array(
+				$this->source( self::NEWBOT_V1, 'Other bot', 4, HOUR_IN_SECONDS, 1200 ), // older variant
+				$this->source( self::NEWBOT_V2, 'Other bot', 3, HOUR_IN_SECONDS, 300 ),  // most recent
+			)
+		);
+		$this->assertCount( 1, $r['sources'], 'Variants of one client are one row.' );
+		$s = $r['sources'][0];
+		$this->assertSame( 'newbot', $s['token'] );
+		$this->assertSame( 7, $s['hits'], 'Volume is summed across variants.' );
+		$this->assertSame( 2, $s['variants'] );
+		$this->assertSame( self::NEWBOT_V2, $s['ua'], 'The most-recent variant fronts the row.' );
+		$this->assertContains( self::NEWBOT_V1, $s['variantUas'] );
+		$this->assertSame( 1, $r['counts']['new'], 'A merged row counts once, not per variant.' );
+	}
+
+	public function test_distinct_clients_are_not_merged() {
+		// Different block tokens are different decisions and stay separate rows.
+		$r = $this->analyze(
+			array(
+				$this->source( self::NEWBOT, 'Other bot', 3, HOUR_IN_SECONDS, 300 ),
+				$this->source( 'Mozilla/5.0 (compatible; OtherBot/1.0; +http://x.test/bot)', 'Other bot', 3, HOUR_IN_SECONDS, 300 ),
+			)
+		);
+		$this->assertCount( 2, $r['sources'] );
+		$this->assertSame( 1, $r['sources'][0]['variants'] );
+	}
+
+	public function test_a_single_row_reports_one_variant() {
+		$r = $this->analyze( array( $this->source( self::NEWBOT, 'Other bot', 3, HOUR_IN_SECONDS, 600 ) ) );
+		$this->assertSame( 1, $r['sources'][0]['variants'] );
+		$this->assertSame( array( self::NEWBOT ), $r['sources'][0]['variantUas'] );
+	}
 }

@@ -406,18 +406,9 @@ final class Repository {
 
 			// A "new"-only source we can neither block nor flag as spoof/heavy is just
 			// noise here (a one-off new browser/script). Show only genuinely suspicious
-			// (spoof/heavy) or actionable / already-blocked rows. Count only what shows.
+			// (spoof/heavy) or actionable / already-blocked rows. (Counted post-merge.)
 			if ( ! $is_spoof && ! $is_heavy && ! $blocked && '' === $action ) {
 				continue;
-			}
-			if ( $is_new ) {
-				++$counts['new'];
-			}
-			if ( $is_heavy ) {
-				++$counts['heavy'];
-			}
-			if ( $is_spoof ) {
-				++$counts['spoof'];
 			}
 
 			$known   = Catalog::identify( $ua );
@@ -445,6 +436,28 @@ final class Repository {
 			);
 		}
 
+		// Collapse UA variants of one client: two user-agents that resolve to the same
+		// block token (a version bump, a parenthetical comment…) are one decision —
+		// one Block denies both — so listing them separately implies two. Fold matching
+		// actionable rows into one (summed volume, widest first/last window, OR'd flags),
+		// keeping the most-recent UA as the face of the row.
+		$out = self::merge_token_variants( $out );
+
+		// Count only what finally shows (post-merge) so the chips and badge match the
+		// rows the owner actually sees.
+		$counts = array( 'new' => 0, 'heavy' => 0, 'spoof' => 0 );
+		foreach ( $out as $row ) {
+			if ( $row['flags']['new'] ) {
+				++$counts['new'];
+			}
+			if ( $row['flags']['heavy'] ) {
+				++$counts['heavy'];
+			}
+			if ( $row['flags']['spoof'] ) {
+				++$counts['spoof'];
+			}
+		}
+
 		// Rank for a "review" panel: rows that still need a decision lead; an
 		// already-blocked client is handled, so it sinks. Within each group, most
 		// severe first, then by raw volume.
@@ -466,6 +479,71 @@ final class Repository {
 			'counts'     => $counts,
 			'blockingOn' => ! empty( $opts['blockingOn'] ),
 		);
+	}
+
+	/**
+	 * Fold review rows that share a block token into one. Only actionable ('agent')
+	 * rows merge — a spoof row arms a whole class and a no-token row has no shared
+	 * action, so those stay as they are. Order is preserved (first occurrence keeps
+	 * its slot); later variants are summed into it.
+	 *
+	 * @param array $rows Per-UA rows built by {@see analyze_threats()}.
+	 * @return array
+	 */
+	private static function merge_token_variants( array $rows ) {
+		$out   = array();
+		$index = array(); // token => position in $out.
+		foreach ( $rows as $row ) {
+			$key = ( 'agent' === $row['action'] && '' !== $row['token'] ) ? $row['token'] : '';
+			if ( '' === $key || ! isset( $index[ $key ] ) ) {
+				$row['variants']   = 1;
+				$row['variantUas'] = array( $row['ua'] );
+				if ( '' !== $key ) {
+					$index[ $key ] = count( $out );
+				}
+				$out[] = $row;
+				continue;
+			}
+			$i         = $index[ $key ];
+			$out[ $i ] = self::fold_variant( $out[ $i ], $row );
+		}
+		return $out;
+	}
+
+	/**
+	 * Merge one extra UA variant ($add) into the row being kept ($keep): summed
+	 * volume, widest seen-window, OR'd flags, with the most-recent variant's UA and
+	 * identity card as the row's representative face. Variant UAs are listed (capped)
+	 * for the row's tooltip.
+	 *
+	 * @param array $keep Accumulator row.
+	 * @param array $add  Variant to fold in.
+	 * @return array
+	 */
+	private static function fold_variant( array $keep, array $add ) {
+		$keep['hits']    += $add['hits'];
+		$keep['recent']  += $add['recent'];
+		$keep['severity'] = max( $keep['severity'], $add['severity'] );
+		foreach ( array( 'new', 'heavy', 'spoof' ) as $flag ) {
+			$keep['flags'][ $flag ] = $keep['flags'][ $flag ] || $add['flags'][ $flag ];
+		}
+		// ISO-8601 with a fixed +00:00 offset sorts lexically = chronologically.
+		if ( '' !== $add['firstSeen'] && ( '' === $keep['firstSeen'] || $add['firstSeen'] < $keep['firstSeen'] ) ) {
+			$keep['firstSeen'] = $add['firstSeen'];
+		}
+		// The latest-seen variant becomes the row's face (UA + identity card).
+		if ( $add['lastSeen'] > $keep['lastSeen'] ) {
+			$keep['lastSeen'] = $add['lastSeen'];
+			$keep['ua']       = $add['ua'];
+			$keep['agent']    = $add['agent'];
+			$keep['known']    = $add['known'];
+			$keep['guide']    = $add['guide'];
+		}
+		++$keep['variants'];
+		if ( count( $keep['variantUas'] ) < 6 ) {
+			$keep['variantUas'][] = $add['ua'];
+		}
+		return $keep;
 	}
 
 	/**

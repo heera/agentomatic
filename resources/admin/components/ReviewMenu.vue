@@ -183,9 +183,9 @@ export default {
               </template>
               <a v-else class="ar-susp-row__learn" :href="s.guide.lookup" target="_blank" rel="noopener noreferrer nofollow" title="Search the web to identify this crawler">Look it up</a>
             </div>
-            <code class="ar-susp-row__ua" :title="s.ua">{{ s.ua || 'No User-Agent' }}</code>
+            <code class="ar-susp-row__ua" :title="(s.variants > 1 && s.variantUas) ? s.variantUas.join('\n') : s.ua">{{ s.ua || 'No User-Agent' }}</code>
             <div class="ar-susp-row__meta">
-              {{ s.hits }} hit{{ 1 === s.hits ? '' : 's' }}<template v-if="s.recent"> · {{ s.recent }} in last hr</template><template v-if="s.lastSeen"> · {{ ago(s.lastSeen) }}</template>
+              {{ s.hits }} hit{{ 1 === s.hits ? '' : 's' }}<template v-if="s.recent"> · {{ s.recent }} in last hr</template><template v-if="s.lastSeen"> · {{ ago(s.lastSeen) }}</template><template v-if="s.variants > 1"> · {{ s.variants }} UA variants</template>
             </div>
           </div>
           <div class="ar-susp-row__action">
