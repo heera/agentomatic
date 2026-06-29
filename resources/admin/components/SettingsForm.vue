@@ -29,7 +29,8 @@ export default {
     return {
       // Which settings group the sub-nav is showing. One group is visible at a
       // time so the page reads as a few focused screens, not one long scroll.
-      group: 'discovery',
+      // Identity leads — the highest-signal section, and where a new owner starts.
+      group: 'identity',
       typeQuery: '',
       nsQuery: '',
       showReset: false,
@@ -53,8 +54,8 @@ export default {
     // are, what bots may do, then the rarely-touched developer/maintenance bits.
     groups() {
       return [
-        { key: 'discovery', label: 'Discovery', hint: 'Files & data AI can read' },
         { key: 'identity', label: 'Identity', hint: 'Who owns this site' },
+        { key: 'discovery', label: 'Discovery', hint: 'Files & data AI can read' },
         { key: 'access', label: 'AI access', hint: 'What bots may do — and who to block' },
         { key: 'advanced', label: 'Advanced', hint: 'Trust, developer & maintenance' },
       ];
