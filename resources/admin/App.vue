@@ -615,21 +615,12 @@ export default {
         this._silentInFlight = false;
       }
       if (!fresh) return;
-      const before = this.reviewCountOf(this.activity);
-      const after = this.reviewCountOf(fresh);
+      // No toast on a background refresh — the bell badge is the persistent "to
+      // review" signal, and the stat tiles update in place. A popup here would be
+      // a redundant, interruptive third notice for the same event.
       this.activity = fresh;
       this.activityLoaded = true;
       this._activityBlockKey = this.blockingKeyOf(this.settings);
-      if (after > before) {
-        const d = after - before;
-        this.flash('warning', `${d} new client${1 === d ? '' : 's'} to review.`);
-      }
-    },
-    // Pending clients still needing a decision — mirrors ReviewMenu's badge count
-    // (blocked ones are handled, so they don't count).
-    reviewCountOf(activity) {
-      const sources = (activity && activity.threats && activity.threats.sources) || [];
-      return sources.filter((s) => !s.blocked).length;
     },
     async clearActivity() {
       try {
