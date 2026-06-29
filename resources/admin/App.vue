@@ -150,6 +150,8 @@ export default {
         enable_ai_header: s.enable_ai_header, enable_tdmrep: s.enable_tdmrep,
         ai_noai_header: s.ai_noai_header, tdm_policy_url: s.tdm_policy_url,
         block_agents: s.block_agents, block_spoofed: s.block_spoofed, blocked_agents: s.blocked_agents, allowed_agents: s.allowed_agents,
+        hide_user_enumeration: s.hide_user_enumeration, disable_author_archives: s.disable_author_archives,
+        hide_wp_version: s.hide_wp_version, tidy_head_links: s.tidy_head_links, disable_xmlrpc: s.disable_xmlrpc,
         security: s.security,
         expertise: id.expertise, same_as: id.same_as,
         // NB: services are NOT here — they save explicitly via the Identity card's

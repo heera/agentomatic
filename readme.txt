@@ -4,7 +4,7 @@ Tags: ai-agents, ai-crawlers, agent-readiness, llms-txt, ai-seo
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.10.0
+Stable tag: 1.10.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -195,6 +195,9 @@ There is no minified-only code. The admin interface is built from Vue 3 source i
 
 == Changelog ==
 
+= 1.10.1 =
+* Fix: the Exposure tab now saves. The five Exposure toggles weren't wired into the admin's auto-save, so flipping one looked like it did nothing and reverted on reload. The settings were always handled correctly on the server — only the admin screen's save trigger was missing. No data or settings were lost.
+
 = 1.10.0 =
 * New "Exposure" settings tab — opt-in, off-by-default controls that limit what an anonymous visitor can read about your site, the defensive counterpart to the Discovery tab. Hide username enumeration (the REST `/wp/v2/users` and `?author=N` leak, the users sitemap, and oEmbed author fields), 404 author-archive pages, hide the WordPress version (generator tag + core asset `?ver=`), drop the rarely-used auto-generated `<head>` discovery links (shortlink, RSD, Windows Live Writer, oEmbed), and disable XML-RPC (renders its methods inert and drops the X-Pingback header). Every control ships OFF, is scoped to logged-out requests so signed-in admins and the block editor keep full access, and a fresh install changes nothing until you opt in.
 * Trusted-agents list, easier to use — the "Always allowed" list (clients that are never blocked and never flagged) no longer hides itself when it's empty, so you can trust an agent up front instead of waiting for one to turn up in the review queue. It now offers one-click chips for well-known AI assistants and answer engines (ChatGPT, Claude, Perplexity, DuckDuckGo, Mistral, …), and shows — read-only — the major search engines (Googlebot, Bingbot, DuckDuckBot, Applebot, Yandex) that are already trusted automatically, so you can see exactly what's allowed without adding anything. New `agentimus_known_allowed` and `agentimus_default_allowed` filters let companion plugins extend both lists.
@@ -283,6 +286,9 @@ There is no minified-only code. The admin interface is built from Vue 3 source i
 * Admin Discovery Hub for inspecting what agents can see, with per-item publish/suppress control.
 
 == Upgrade Notice ==
+
+= 1.10.1 =
+Fixes the Exposure tab not saving (the new toggles weren't wired into auto-save). Recommended for anyone on 1.10.0. No breaking changes.
 
 = 1.10.0 =
 Adds a new "Exposure" tab — opt-in, off-by-default controls that limit what anonymous crawlers can read about your site (username enumeration, author archives, WP version, head-link clutter, XML-RPC). Also makes the "Always allowed" trusted-agents list easier to use, with one-click chips for well-known AI assistants and a read-only view of the search engines trusted automatically. Everything new ships off/unchanged by default; no breaking changes.
