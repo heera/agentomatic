@@ -551,15 +551,43 @@
     flex-wrap: nowrap;
     overflow-x: auto;
     gap: 16px;
+    /* Spread the tabs across the full strip so they reach toward the bell instead
+       of bunching at the left with dead space before it. space-between only
+       distributes EXISTING free space, so when the strip is too narrow it collapses
+       to the gap and scrolls — it can never force an overflow. */
+    justify-content: space-between;
   }
-  .ar__tab { letter-spacing: 0.07em; font-size: 10.5px; }
+  .ar__tab { letter-spacing: 0.07em; font-size: 10.5px; white-space: nowrap; }
   .ar__review { flex: 0 0 auto; align-self: center; }
+  /* Phones: clamp the five nav labels harder so the last one (About) clears the
+     bell instead of scrolling under it. Tighter tracking, smaller type, slimmer
+     gaps + bar padding reclaim ~60px; the strip still scrolls below ~360px. */
   /* Slightly smaller bell so it reads as a peer of the tab labels, not a button
      looming over them. */
   .ar__review-btn { padding: 4px 7px; gap: 5px; }
   .ar__review-btn > svg:first-child { width: 13px; height: 13px; }
   .ar__pagehead { padding-left: 16px; padding-right: 16px; }
   .ar__body { padding: 20px 16px; }
+}
+
+/* Narrow phones: trim padding + the inter-tab gap floor so all five tabs + the
+   bell fit one row. The labels keep their readable size — space-between (set in
+   the ≤720 block) spreads them to fill the strip, so no extra type-shrinking is
+   needed; the strip still scrolls below ~360px. */
+@container (max-width: 460px) {
+  .ar__bar { padding: 11px 12px; }
+  .ar__tabs { gap: 8px; }
+  .ar__tab { letter-spacing: 0.04em; }
+}
+
+/* Mainstream small phones (~360–412): the readable size above would push ABOUT
+   off the strip and scroll it under the bell. Tighten type + gap just enough that
+   all five fit unscrolled here; space-between still spreads them to fill. */
+@container (max-width: 430px) {
+  .ar__bar { padding: 11px 8px; }
+  .ar__tabs { gap: 3px; }
+  .ar__tab { letter-spacing: 0; font-size: 9px; }
+  .ar__review-btn { padding: 4px 6px; gap: 4px; }
 }
 
 .ar-card {
@@ -624,6 +652,12 @@
   background: var(--ar-surface);
   border: 1px solid var(--ar-line);
   border-radius: var(--ar-radius);
+  /* As a grid item of .ar__main, the default min-width:auto would refuse to
+     shrink below the tab strip's intrinsic width — so once the tabs no longer
+     fit (5+ tabs on a phone) the whole panel overflowed the viewport instead of
+     the strip scrolling. min-width:0 lets it shrink to the column; the strip's
+     own overflow-x:auto then scrolls, and the form body wraps to width. */
+  min-width: 0;
 }
 .ar-tabpanel__tabs {
   display: flex; gap: 0;
@@ -650,6 +684,17 @@
   box-shadow: inset 0 2px 0 0 var(--ar-accent);          /* top accent indicator */
 }
 .ar-subnav__item:focus-visible { outline: 2px solid var(--ar-accent); outline-offset: -2px; }
+/* On a phone, clamp the tabs so all five fit one row instead of scrolling off
+   the edge: smaller type, tighter tracking, slimmer padding. Their total
+   max-content then fits a typical (≥360px) viewport; the strip keeps
+   overflow-x:auto as a graceful fallback for anything narrower. */
+@media (max-width: 600px) {
+  .ar-tabpanel__tabs .ar-subnav__item {
+    padding: 12px 6px;
+    font-size: 10px;
+    letter-spacing: 0.02em;
+  }
+}
 
 /* Slim section description, a band under the tabs. */
 .ar-tabpanel__caption {
