@@ -141,6 +141,20 @@ export default {
       </div>
     </section>
 
+    <!-- Honest expectations -->
+    <section class="ar-card">
+      <h2 class="ar-card__title">What it can’t do</h2>
+      <p class="ar-card__lead">
+        Agentimus makes your site <strong>discoverable and correctly understood</strong> — when an AI agent
+        looks at your site, it finds your content, reads a clean version, and describes you accurately. That’s
+        what a discovery layer controls, and it does it well. It can’t make an assistant <strong>spontaneously
+        mention you</strong> when someone asks a broad question — that’s authority and reputation, earned over
+        time through content others reference. No plugin can manufacture it, and tools promising “instant AI
+        visibility” are overselling. Agentimus makes sure that when your work does bring an agent to your door,
+        nothing is lost in translation.
+      </p>
+    </section>
+
     <!-- Privacy & data -->
     <section class="ar-card ar-about-priv">
       <h2 class="ar-card__title">Privacy &amp; data</h2>

@@ -32,6 +32,9 @@ final class Endpoints {
 		// theme already emitted this request (zero-config de-dupe).
 		add_action( 'send_headers', array( $this, 'link_headers' ), 99 );
 		add_action( 'send_headers', array( $this, 'ai_signal_headers' ), 99 );
+		// Mirror the two most useful discovery links into the HTML <head> too — some
+		// crawlers/scanners read the markup but not the HTTP Link header.
+		add_action( 'wp_head', array( $this, 'head_links' ), 2 );
 		add_filter( 'robots_txt', array( $this, 'robots_txt' ), 20, 2 );
 		// Re-warm the heavy full-text edition out-of-band after content changes.
 		add_action( 'agentimus_cache_flushed', array( $this, 'schedule_warm' ) );
@@ -262,6 +265,31 @@ final class Endpoints {
 				header( 'Link: <' . esc_url_raw( $md ) . '>; rel="alternate"; type="text/markdown"', false );
 			}
 		}
+	}
+
+	/**
+	 * Echo the two highest-value discovery links into the HTML <head>. These are
+	 * already advertised in the HTTP Link header (link_headers above), but some
+	 * crawlers and readiness scanners parse the markup and not the headers — so a
+	 * belt-and-suspenders <link> makes llms.txt and the OpenAPI contract findable
+	 * either way. Cheap, idempotent, and skipped when the surface is ceded.
+	 */
+	public function head_links() {
+		if ( is_admin() || is_feed() || $this->yields( 'link_headers' ) ) {
+			return;
+		}
+		if ( $this->settings->enabled( 'enable_llms_txt' ) ) {
+			printf(
+				'<link rel="describedby" type="text/plain" href="%s">' . "\n",
+				esc_url( home_url( '/llms.txt' ) )
+			);
+		}
+		// The OpenAPI 3.1 description of the existing public REST read API is always
+		// served at /.well-known/openapi.json while the plugin is active.
+		printf(
+			'<link rel="service-desc" type="application/json" href="%s">' . "\n",
+			esc_url( home_url( '/.well-known/openapi.json' ) )
+		);
 	}
 
 	/**

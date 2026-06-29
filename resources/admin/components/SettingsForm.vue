@@ -124,6 +124,7 @@ export default {
         { key: 'enable_activity', label: 'Visit log', hint: 'Records which AI assistants fetch your AI files, and counts visitors AI sends you. Local-only, no IP addresses.' },
         { key: 'enable_sitemap', label: 'Sitemap (backup)', hint: 'Adds a sitemap only when WordPress core and your SEO plugin don’t already provide one — never duplicates.' },
         { key: 'enable_signing', label: 'Verified responses', hint: 'Digitally signs your AI files so assistants can confirm they really came from your site and weren’t tampered with on the way. On by default; no setup needed.' },
+        { key: 'enable_webmcp', label: 'Browser tools for AI (experimental)', hint: 'Lets an AI agent working inside a browser call your site’s read-only tools (like site search) directly, via the emerging WebMCP browser standard. Adds a tiny script that does nothing in browsers without it. Off by default — turn on only to be an early adopter.' },
       ];
     },
     // A heads-up under the posts-per-type input: the server's COUNT-only estimate

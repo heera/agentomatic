@@ -4,7 +4,7 @@ Tags: ai-agents, ai-crawlers, agent-readiness, llms-txt, ai-seo
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.8.0
+Stable tag: 1.9.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -126,9 +126,13 @@ Yes — list them under **Block specific crawlers**. That writes a per-name `Dis
 
 Yes — the dashboard's "Traffic from AI" card counts real people who landed on your site from an AI assistant (ChatGPT, Perplexity, Gemini, …), detected from the visit's referrer and the `utm_source` tag some AI tools add to their links. It's the mirror of the activity log: that shows bots *reading* your content; this shows AI *bringing you readers*, with a by-source and top-landing-pages breakdown. Like the rest of the log it's first-party and aggregate-only — no IP, no per-visitor records, nothing sent anywhere. Some AI visits can't be detected (stripped referrers, Google's AI Overviews, cached pages), so read the figure as a floor: at least this many.
 
+= Will Agentimus get my site mentioned by ChatGPT or improve my AI rankings? =
+
+Honestly: it helps with one half of that, not the other. Agentimus makes your site **discoverable and correctly understood** — when an AI assistant looks at your site, it can find your content, read a clean version, and describe you accurately. That is what the plugin controls, and it does it well. But whether an AI **spontaneously mentions you** when someone asks a broad question ("best resources for X") is a matter of **authority and reputation** — earned over time through genuinely notable content that others reference. No plugin, llms.txt, or schema can manufacture that, and any tool promising "instant AI visibility" is overselling. Agentimus makes sure that when authority does bring an agent to your door, nothing is lost in translation.
+
 = Will it slow my site down? =
 
-No. The text endpoints are cached and CDN-friendly; there is no front-end JavaScript or CSS. The admin app loads only on the plugin's own screen.
+No. The text endpoints are cached and CDN-friendly; there is no front-end JavaScript or CSS for your visitors (the optional, off-by-default WebMCP bridge adds a tiny script only when you enable it, and it stays inert in browsers without the API). The admin app loads only on the plugin's own screen.
 
 = Does it expose anything private, or let agents change my site? =
 
@@ -181,6 +185,12 @@ The example URLs in `examples/integrate-your-plugin.php` (on `example.com`) are 
 There is no minified-only code. The admin interface is built from Vue 3 source in `resources/` with Vite; the source and `vite.config.js` ship in this package and also live in the public repository at https://github.com/heera/agentimus . Run `npm install && npm run build` to regenerate `assets/admin/` from source.
 
 == Changelog ==
+
+= 1.9.0 =
+* WebMCP bridge (experimental, opt-in, OFF by default): registers your site's read-only tools — starting with site search — with AI agents working inside a browser, via the emerging WebMCP standard (navigator.modelContext). Adds a tiny front-end script only when you enable it, and it stays completely inert in browsers without the API, so a default install still ships no front-end JavaScript. Companion plugins can add their own read-only tools with the `agentimus_webmcp_tools` filter.
+* Discovery links in the HTML <head>: the llms.txt and OpenAPI links are now mirrored into the page markup as well as the HTTP Link header, so crawlers and readiness scanners that read the HTML — not the headers — find them too.
+* CORS preflight: the /.well-known discovery docs now answer an OPTIONS preflight (scoped strictly to the names this plugin serves), so strict cross-origin agent clients aren't blocked. Simple GET access was already cross-origin-enabled.
+* About tab + FAQ: an honest note on what a discovery layer can and can't do — it makes your site discoverable and correctly understood, but it can't manufacture the authority that gets you spontaneously cited. No tool can; anything promising "instant AI visibility" is overselling.
 
 = 1.8.0 =
 * Onboarding & listing: plain-language wording throughout — what Agentimus does, who it's for, and that it needs no technical setup — so a non-technical site owner can tell at a glance whether it's for them.
@@ -259,6 +269,9 @@ There is no minified-only code. The admin interface is built from Vue 3 source i
 * Admin Discovery Hub for inspecting what agents can see, with per-item publish/suppress control.
 
 == Upgrade Notice ==
+
+= 1.9.0 =
+Adds an optional, off-by-default experimental WebMCP bridge (browser tools for AI agents), mirrors the key discovery links into the HTML head, answers CORS preflights on the discovery docs, and an honest note on what a discovery layer can and can't do. No breaking changes.
 
 = 1.8.0 =
 Friendlier, plainer wording for non-technical owners; Readiness checks now jump to and highlight the exact setting that fixes them; plus activity-table, cache and block-pattern hardening. No breaking changes.

@@ -32,6 +32,7 @@ final class Settings {
 			'enable_sitemap'   => true, // Gap-only fallback: stands down when core/SEO provides one, so it's safe on by default.
 			'enable_security_txt' => false, // Opt-in: generate /.well-known/security.txt only when asked AND no file/other plugin already provides one.
 			'enable_signing'   => true,     // On by default: RFC 9421 signatures on the discovery docs + a published Web Bot Auth key directory. Feature-detected — silently stands down when libsodium is unavailable, so it's safe as a default.
+			'enable_webmcp'    => false,    // Experimental, opt-in: register the site's READ-ONLY tools with in-browser AI agents via the WebMCP browser API (navigator.modelContext). Off by default — it's an emerging, Chrome-experimental standard and it adds a small front-end script, so it ships only when the owner asks. The script is inert in browsers without the API.
 			'llms_full_posts'  => 50,
 			'llms_full_max_kb' => 1024, // Hard byte budget for /llms-full.txt (KB): generation stops cleanly here and links the index. Keeps the file ingestible and under common 1 MB object-cache row limits.
 			'post_types'       => self::default_post_types(),
@@ -473,6 +474,9 @@ final class Settings {
 		$clean['enable_tdmrep']    = ! isset( $input['enable_tdmrep'] ) ? $defaults['enable_tdmrep'] : ! empty( $input['enable_tdmrep'] );
 		$clean['ai_noai_header']   = ! empty( $input['ai_noai_header'] );
 		$clean['tdm_policy_url']    = isset( $input['tdm_policy_url'] ) ? esc_url_raw( (string) $input['tdm_policy_url'] ) : '';
+
+		// Experimental WebMCP browser-tool registration — default-OFF, plain ! empty().
+		$clean['enable_webmcp'] = ! empty( $input['enable_webmcp'] );
 
 		// Optional hard-block enforcement. block_spoofed defaults true and is only
 		// flipped off by an explicit false, so a client that omits the key (e.g. a

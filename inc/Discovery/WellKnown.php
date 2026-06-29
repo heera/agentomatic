@@ -150,9 +150,6 @@ final class WellKnown {
 		}
 
 		$method = isset( $_SERVER['REQUEST_METHOD'] ) ? strtoupper( sanitize_text_field( wp_unslash( $_SERVER['REQUEST_METHOD'] ) ) ) : 'GET';
-		if ( 'GET' !== $method && 'HEAD' !== $method ) {
-			return;
-		}
 
 		$uri  = isset( $_SERVER['REQUEST_URI'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REQUEST_URI'] ) ) : '/';
 		$path = '/' . ltrim( (string) wp_parse_url( $uri, PHP_URL_PATH ), '/' );
@@ -163,6 +160,21 @@ final class WellKnown {
 		$name = trim( substr( $path, strlen( self::PREFIX ) ), '/' );
 		if ( '' === $name || false !== strpos( $name, '..' ) ) {
 			return; // Never serve a traversal path.
+		}
+
+		// CORS preflight: a cross-origin agent fetching a doc with non-simple headers
+		// sends an OPTIONS first. Answer it — but ONLY for names we actually serve, so
+		// we never shadow another component's /.well-known/* OPTIONS handling. (The
+		// real GET already carries Access-Control-Allow-Origin: * via send()/stream().)
+		if ( 'OPTIONS' === $method ) {
+			if ( $this->serves( $name ) ) {
+				$this->preflight();
+			}
+			return;
+		}
+
+		if ( 'GET' !== $method && 'HEAD' !== $method ) {
+			return;
 		}
 
 		// Nested, whitelisted docs (e.g. mcp/server-card.json) contain a '/', which
@@ -313,6 +325,39 @@ final class WellKnown {
 			$body = (string) call_user_func( $def['callback'] );
 			$this->send( $body, $def['content_type'] );
 		}
+	}
+
+	/**
+	 * Whether `$name` is a /.well-known doc this plugin actually serves — the flat
+	 * routed names, the nested allow-list, or a per-server MCP card. Used to scope
+	 * the CORS preflight so we only answer OPTIONS for paths we own.
+	 *
+	 * @param string $name Doc name (no leading slash).
+	 * @return bool
+	 */
+	private function serves( $name ) {
+		if ( in_array( $name, self::routed_names(), true ) || in_array( $name, self::nested_routes(), true ) ) {
+			return true;
+		}
+		return (bool) preg_match( '#^mcp/([^/]+)/server-card\.json$#', $name );
+	}
+
+	/**
+	 * Answer a CORS preflight for a doc we serve: the access-control headers a
+	 * strict cross-origin agent expects, a 204, and no body.
+	 */
+	private function preflight() {
+		if ( ! headers_sent() ) {
+			status_header( 204 );
+			header_remove( 'Expires' ); // Drop WP's 404-path no-cache headers (see send()).
+			header_remove( 'Pragma' );
+			header( 'Access-Control-Allow-Origin: *' );
+			header( 'Access-Control-Allow-Methods: GET, HEAD, OPTIONS' );
+			header( 'Access-Control-Allow-Headers: *' );
+			header( 'Access-Control-Max-Age: 86400' );
+			header( 'Content-Length: 0' );
+		}
+		exit;
 	}
 
 	/**
