@@ -45,6 +45,31 @@ final class Admin {
 		// touch the global admin footer or any unrelated screen).
 		add_filter( 'admin_footer_text', array( $this, 'admin_footer_text' ) );
 		add_filter( 'update_footer', array( $this, 'admin_footer_version' ), 15 );
+
+		// Keep our own screen clean: WordPress prints every other plugin's
+		// admin_notices on every admin page. On the Agentimus screen ONLY, clear
+		// those queues before they render (same scoped convention as above).
+		add_action( 'in_admin_header', array( $this, 'suppress_foreign_notices' ), 1 );
+	}
+
+	/**
+	 * On the Agentimus admin screen, remove all queued admin notices so other
+	 * plugins' banners don't intrude on our app-like UI. Runs on `in_admin_header`,
+	 * before WordPress prints the notices, and is a no-op on every other screen.
+	 * Agentimus registers no admin_notices of its own, so nothing of ours is lost.
+	 */
+	public function suppress_foreign_notices() {
+		if ( ! function_exists( 'get_current_screen' ) ) {
+			return;
+		}
+		$screen = get_current_screen();
+		if ( ! $screen || 'toplevel_page_' . self::SLUG !== $screen->id ) {
+			return;
+		}
+		remove_all_actions( 'admin_notices' );
+		remove_all_actions( 'all_admin_notices' );
+		remove_all_actions( 'user_admin_notices' );
+		remove_all_actions( 'network_admin_notices' );
 	}
 
 	/**
@@ -456,18 +481,15 @@ final class Admin {
 	}
 
 	/**
-	 * Cache-busting version: plugin version in production, mtime in debug.
+	 * Cache-busting version: the asset's own file mtime, so a rebuilt bundle is
+	 * always served fresh (no plugin-version bump or WP_DEBUG needed). Falls back to
+	 * the plugin version only if the file can't be read.
 	 *
 	 * @param string $path Absolute file path.
 	 * @return string
 	 */
 	private function asset_version( $path ) {
-		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-			$mtime = @filemtime( $path ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
-			if ( $mtime ) {
-				return (string) $mtime;
-			}
-		}
-		return AGENTIMUS_VERSION;
+		$mtime = @filemtime( $path ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+		return $mtime ? (string) $mtime : AGENTIMUS_VERSION;
 	}
 }

@@ -17,6 +17,15 @@ final class Module {
 	/** @var string The cron hook that runs a monitoring pass. */
 	const HOOK = 'agentimus_visibility_run';
 
+	/** @var string The cron hook for a one-off "run now" pass, fired in the background. */
+	const HOOK_ONCE = 'agentimus_visibility_run_now';
+
+	/** @var string Transient set while a background run is in flight (self-expires). */
+	const RUNNING = 'agentimus_visibility_running';
+
+	/** @var int Safety TTL (seconds) on the running flag, so a died job can't wedge the UI. */
+	const RUNNING_TTL = 900;
+
 	/** @var Settings */
 	private $settings;
 
@@ -37,6 +46,7 @@ final class Module {
 		Table::maybe_install();
 
 		add_action( self::HOOK, array( $this, 'run_scheduled' ) );
+		add_action( self::HOOK_ONCE, array( $this, 'run_now_job' ) );
 
 		// Reconcile the schedule with the stored frequency on admin load. Cheap
 		// (an option read plus a compare) and self-heals a drifted schedule.
@@ -44,25 +54,97 @@ final class Module {
 	}
 
 	/**
-	 * The cron entry point.
+	 * The recurring cron entry point.
 	 */
 	public function run_scheduled() {
 		( new Runner( $this->settings ) )->run();
 	}
 
 	/**
-	 * Align the cron schedule with the current frequency setting.
+	 * The background "run now" entry point. A run makes many slow HTTP calls (more so
+	 * with live web search), which can outlast the web server's gateway timeout — so
+	 * the admin queues it here and polls for results instead of waiting on the request.
+	 * The running flag is always cleared, even if the run throws.
+	 */
+	public function run_now_job() {
+		try {
+			( new Runner( $this->settings ) )->run();
+		} finally {
+			delete_transient( self::RUNNING );
+		}
+	}
+
+	/**
+	 * Queue an immediate background run and nudge cron to start it now. Sets the
+	 * running flag so the admin can show progress and poll for completion.
+	 */
+	public function queue_now() {
+		set_transient( self::RUNNING, time(), self::RUNNING_TTL );
+
+		if ( ! wp_next_scheduled( self::HOOK_ONCE ) ) {
+			wp_schedule_single_event( time(), self::HOOK_ONCE );
+		}
+
+		// Fire the loopback now rather than waiting for the next natural cron tick,
+		// so "Run now" feels immediate. Guarded so we never recurse inside cron.
+		if ( ! defined( 'DOING_CRON' ) && function_exists( 'spawn_cron' ) ) {
+			spawn_cron();
+		}
+	}
+
+	/**
+	 * Whether a background run is currently in flight.
+	 *
+	 * @return bool
+	 */
+	public static function is_running() {
+		return (bool) get_transient( self::RUNNING );
+	}
+
+	/**
+	 * Align the cron schedule with the current settings (master switch + frequency).
 	 */
 	public function sync_schedule() {
-		self::apply_schedule( (string) $this->settings->get( 'frequency', 'weekly' ) );
+		self::apply_schedule(
+			self::should_schedule( $this->settings ),
+			(string) $this->settings->get( 'frequency', 'weekly' )
+		);
 	}
 
 	/**
 	 * Schedule the recurring run for this site at activation, honouring whatever
-	 * frequency is stored (default weekly).
+	 * is stored (default: off until configured).
 	 */
 	public static function schedule() {
-		self::apply_schedule( (string) ( new Settings() )->get( 'frequency', 'weekly' ) );
+		$settings = new Settings();
+		self::apply_schedule(
+			self::should_schedule( $settings ),
+			(string) $settings->get( 'frequency', 'weekly' )
+		);
+	}
+
+	/**
+	 * Whether an automatic run should be scheduled at all: the master switch must be
+	 * on, at least one engine must be usable (enabled + keyed), and at least one
+	 * active product must have a question. Otherwise a run would do nothing, so we
+	 * register no cron — a fresh or half-configured install schedules nothing.
+	 *
+	 * @param Settings $settings Pro settings.
+	 * @return bool
+	 */
+	private static function should_schedule( Settings $settings ) {
+		if ( ! (bool) $settings->get( 'active', false ) ) {
+			return false;
+		}
+		if ( empty( $settings->active_providers() ) ) {
+			return false;
+		}
+		foreach ( (array) $settings->get( 'targets', array() ) as $t ) {
+			if ( ( $t['active'] ?? true ) && ! empty( $t['prompts'] ) ) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/**
@@ -74,13 +156,14 @@ final class Module {
 
 	/**
 	 * Ensure exactly one scheduled event exists at the right recurrence — or none
-	 * when the frequency is "manual". No-ops when already correctly scheduled, so
-	 * it's safe to call on every admin load.
+	 * when automatic checks shouldn't run. No-ops when already correctly scheduled,
+	 * so it's safe to call on every admin load.
 	 *
-	 * @param string $frequency manual | daily | weekly.
+	 * @param bool   $enabled   Whether a recurring run should be scheduled at all.
+	 * @param string $frequency daily | weekly.
 	 */
-	private static function apply_schedule( $frequency ) {
-		if ( 'manual' === $frequency ) {
+	private static function apply_schedule( $enabled, $frequency ) {
+		if ( ! $enabled || 'manual' === $frequency ) {
 			self::unschedule();
 			return;
 		}

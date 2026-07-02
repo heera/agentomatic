@@ -121,7 +121,12 @@ final class Network {
 
 			$out[] = array(
 				'name'       => get_bloginfo( 'name' ),
-				'brand'      => (string) $settings->get( 'brand', '' ),
+				'brand'      => implode( ', ', array_filter( array_map(
+					static function ( $t ) {
+						return is_array( $t ) ? trim( (string) ( $t['name'] ?? '' ) ) : '';
+					},
+					(array) $settings->get( 'targets', array() )
+				) ) ),
 				'hasData'    => (bool) $summary,
 				'visibility' => $summary ? (int) $summary['visibilityScore'] : 0,
 				'citations'  => $summary ? (int) $summary['citationRate'] : 0,

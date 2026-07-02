@@ -929,6 +929,7 @@ export default {
         <VisibilityPanel
           v-show="tab === 'visibility'"
           :api="api"
+          @flash="flash"
         />
         <AboutPanel
           v-show="tab === 'about'"

@@ -6,8 +6,10 @@
  *
  * Kept in its own option (never mixed into the free core's settings) so the two
  * plugins can be installed, reset or uninstalled independently. API keys are
- * write-only across the REST boundary — they are stored here but masked on the
- * way out (see public_view()), so a key is never echoed back to the browser.
+ * masked by default across the REST boundary — public_view() replaces each stored
+ * key with a placeholder, so a key is never echoed back in the config payload. The
+ * full key is returned only by the explicit, manage_options-gated reveal endpoint
+ * (see Rest::reveal_key), when an admin asks to view their own key.
  *
  * @package Agentimus
  */
@@ -24,11 +26,14 @@ final class Settings {
 	/** @var string Placeholder the UI shows for a stored key; means "unchanged" on save. */
 	const KEY_MASK = '__stored__';
 
-	/** @var int Hard cap on tracked prompts, to bound a monitoring run's cost. */
+	/** @var int Hard cap on tracked prompts per product, to bound a run's cost. */
 	const MAX_PROMPTS = 25;
 
-	/** @var int Hard cap on tracked competitors. */
+	/** @var int Hard cap on tracked competitors per product. */
 	const MAX_COMPETITORS = 20;
+
+	/** @var int Hard cap on tracked products — each has its own name, site, rivals and questions. */
+	const MAX_TARGETS = 10;
 
 	/**
 	 * The free-core plugin instance, when available, used only to seed sensible
@@ -62,6 +67,8 @@ final class Settings {
 			'openai'     => array(
 				'label'    => 'ChatGPT (OpenAI)',
 				'model'    => 'gpt-4o-mini',
+				// A few common models to pick from; the field also accepts a custom ID.
+				'models'   => array( 'gpt-4o-mini', 'gpt-4o', 'gpt-4.1-mini', 'gpt-4.1' ),
 				'key_hint' => 'sk-…',
 				'help_url' => 'https://platform.openai.com/api-keys',
 				'grounded' => false,
@@ -73,6 +80,7 @@ final class Settings {
 			'perplexity' => array(
 				'label'    => 'Perplexity',
 				'model'    => 'sonar',
+				'models'   => array( 'sonar', 'sonar-pro', 'sonar-reasoning' ),
 				'key_hint' => 'pplx-…',
 				'help_url' => 'https://www.perplexity.ai/settings/api',
 				'grounded' => true, // Answers from live web results with citations.
@@ -80,6 +88,7 @@ final class Settings {
 			'gemini'     => array(
 				'label'    => 'Gemini (Google)',
 				'model'    => 'gemini-2.0-flash',
+				'models'   => array( 'gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-pro' ),
 				'key_hint' => 'AIza…',
 				'help_url' => 'https://aistudio.google.com/app/apikey',
 				'grounded' => false,
@@ -89,9 +98,13 @@ final class Settings {
 			'anthropic'  => array(
 				'label'    => 'Claude (Anthropic)',
 				'model'    => 'claude-opus-4-8',
+				'models'   => array( 'claude-opus-4-8', 'claude-sonnet-5', 'claude-haiku-4-5-20251001' ),
 				'key_hint' => 'sk-ant-…',
 				'help_url' => 'https://console.anthropic.com/settings/keys',
 				'grounded' => false,
+				// Can optionally ground answers on Claude's built-in web search tool,
+				// which cites its sources. See Providers\Anthropic.
+				'web_search_capable' => true,
 			),
 		);
 	}
@@ -119,20 +132,45 @@ final class Settings {
 		}
 
 		return array(
-			'brand'          => $this->default_brand(),
-			'domain'         => $this->default_domain(),
-			'competitors'    => array(),
-			'prompts'        => array(),
+			'targets'        => $this->default_targets(),
 			'providers'      => $providers,
-			'frequency'      => 'weekly', // manual | daily | weekly
+			// Automatic checks are OFF until the owner opts in — each run spends their
+			// own AI API budget, so we never start recurring paid work on their behalf.
+			// "Run check now" still works on demand. Turning this on schedules the run.
+			'active'         => false,
+			'frequency'      => 'weekly', // daily | weekly
 			'retention_days' => 180,
 		);
 	}
 
 	/**
-	 * The natural default brand to track: the name from the core Identity settings
-	 * if the owner set one, otherwise the site title. Reading the core option keeps
-	 * this module self-contained (no hard dependency on the core Settings class).
+	 * One starting product, seeded from the site's own identity (name + domain), so a
+	 * first run is meaningful before anything is configured. Users can add more, each
+	 * with its own name, website, competitors and questions.
+	 *
+	 * @return array[]
+	 */
+	private function default_targets() {
+		$name   = $this->default_brand();
+		$domain = $this->default_domain();
+		if ( '' === $name && '' === $domain ) {
+			return array();
+		}
+		return array(
+			array(
+				'name'        => $name,
+				'domain'      => $domain,
+				'active'      => true,
+				'competitors' => array(),
+				'prompts'     => array(),
+			),
+		);
+	}
+
+	/**
+	 * The natural default brand name to track: the name from the core Identity
+	 * settings if the owner set one, otherwise the site title. Reading the core
+	 * option keeps this module self-contained (no hard dependency on core Settings).
 	 *
 	 * @return string
 	 */
@@ -189,9 +227,109 @@ final class Settings {
 			$out['providers'][ $id ] = array_merge( $default_cfg, $stored_cfg );
 		}
 
-		$out['competitors'] = isset( $stored['competitors'] ) ? (array) $stored['competitors'] : $defaults['competitors'];
-		$out['prompts']     = isset( $stored['prompts'] ) ? (array) $stored['prompts'] : $defaults['prompts'];
+		// Products: prefer the new per-product list. Migrate the older flat shape
+		// (a single/multi brand + one shared domain/competitors/prompts) into one
+		// product per name so nobody loses their setup on upgrade.
+		if ( isset( $stored['targets'] ) && is_array( $stored['targets'] ) ) {
+			$out['targets'] = $this->normalize_targets( $stored['targets'] );
+		} elseif ( isset( $stored['brands'] ) || isset( $stored['brand'] ) || isset( $stored['prompts'] ) || isset( $stored['competitors'] ) ) {
+			$out['targets'] = $this->migrate_flat( $stored );
+		} else {
+			$out['targets'] = $defaults['targets'];
+		}
 
+		// Schedule master switch. Migrate a legacy 'manual' frequency to "off" and
+		// normalize the frequency itself to the two recurring options.
+		if ( isset( $stored['active'] ) ) {
+			$out['active'] = (bool) $stored['active'];
+		} elseif ( isset( $stored['frequency'] ) && 'manual' === $stored['frequency'] ) {
+			$out['active'] = false;
+		} else {
+			$out['active'] = $defaults['active'];
+		}
+		if ( 'manual' === ( $out['frequency'] ?? '' ) || ! in_array( ( $out['frequency'] ?? '' ), array( 'daily', 'weekly' ), true ) ) {
+			$out['frequency'] = 'weekly';
+		}
+
+		// Drop the retired flat keys so they don't linger in the saved option.
+		unset( $out['brands'], $out['brand'], $out['domain'], $out['competitors'], $out['prompts'] );
+
+		return $out;
+	}
+
+	/**
+	 * Ensure every stored product has the full shape (name, domain, competitors,
+	 * prompts) with clean lists — tolerant of partial/older rows.
+	 *
+	 * @param mixed $targets Raw stored products.
+	 * @return array[]
+	 */
+	private function normalize_targets( $targets ) {
+		$out = array();
+		foreach ( (array) $targets as $t ) {
+			if ( ! is_array( $t ) ) {
+				continue;
+			}
+			$out[] = array(
+				'name'        => isset( $t['name'] ) ? trim( (string) $t['name'] ) : '',
+				'domain'      => isset( $t['domain'] ) ? trim( (string) $t['domain'] ) : '',
+				'active'      => isset( $t['active'] ) ? (bool) $t['active'] : true,
+				'competitors' => $this->clean_names( isset( $t['competitors'] ) ? (array) $t['competitors'] : array() ),
+				'prompts'     => $this->clean_names( isset( $t['prompts'] ) ? (array) $t['prompts'] : array() ),
+			);
+		}
+		return $out;
+	}
+
+	/**
+	 * Fold a pre-product (flat) config into one product per tracked name, all sharing
+	 * the old single domain/competitors/prompts.
+	 *
+	 * @param array $stored Raw stored settings in the old shape.
+	 * @return array[]
+	 */
+	private function migrate_flat( array $stored ) {
+		$names = array();
+		if ( isset( $stored['brands'] ) ) {
+			$names = $this->clean_names( (array) $stored['brands'] );
+		} elseif ( isset( $stored['brand'] ) && '' !== trim( (string) $stored['brand'] ) ) {
+			$names = array( trim( (string) $stored['brand'] ) );
+		}
+		if ( empty( $names ) ) {
+			return $this->default_targets();
+		}
+
+		$domain      = isset( $stored['domain'] ) ? trim( (string) $stored['domain'] ) : $this->default_domain();
+		$competitors = $this->clean_names( isset( $stored['competitors'] ) ? (array) $stored['competitors'] : array() );
+		$prompts     = $this->clean_names( isset( $stored['prompts'] ) ? (array) $stored['prompts'] : array() );
+
+		$out = array();
+		foreach ( $names as $n ) {
+			$out[] = array(
+				'name'        => $n,
+				'domain'      => $domain,
+				'active'      => true,
+				'competitors' => $competitors,
+				'prompts'     => $prompts,
+			);
+		}
+		return $out;
+	}
+
+	/**
+	 * Trim, drop empties, and de-duplicate a list of names, preserving order.
+	 *
+	 * @param array $names Raw names.
+	 * @return string[]
+	 */
+	private function clean_names( array $names ) {
+		$out = array();
+		foreach ( $names as $n ) {
+			$n = trim( (string) $n );
+			if ( '' !== $n && ! in_array( $n, $out, true ) ) {
+				$out[] = $n;
+			}
+		}
 		return $out;
 	}
 
@@ -242,6 +380,7 @@ final class Settings {
 			$providers[ $id ] = array(
 				'enabled'          => ! empty( $cfg['enabled'] ),
 				'model'            => (string) ( $cfg['model'] ?? $meta['model'] ),
+				'models'           => array_values( (array) ( $meta['models'] ?? array( $meta['model'] ) ) ),
 				'hasKey'           => $has_key,
 				'key'              => $has_key ? self::KEY_MASK : '',
 				'label'            => $meta['label'],
@@ -253,14 +392,23 @@ final class Settings {
 			);
 		}
 
+		$targets = array();
+		foreach ( (array) $all['targets'] as $t ) {
+			$targets[] = array(
+				'name'        => (string) ( $t['name'] ?? '' ),
+				'domain'      => (string) ( $t['domain'] ?? '' ),
+				'active'      => isset( $t['active'] ) ? (bool) $t['active'] : true,
+				'competitors' => array_values( (array) ( $t['competitors'] ?? array() ) ),
+				'prompts'     => array_values( (array) ( $t['prompts'] ?? array() ) ),
+			);
+		}
+
 		return array(
-			'brand'         => (string) $all['brand'],
-			'domain'        => (string) $all['domain'],
-			'competitors'   => array_values( (array) $all['competitors'] ),
-			'prompts'       => array_values( (array) $all['prompts'] ),
-			'providers'     => $providers,
-			'frequency'     => (string) $all['frequency'],
-			'retentionDays' => (int) $all['retention_days'],
+			'targets'        => $targets,
+			'providers'      => $providers,
+			'scheduleActive' => (bool) $all['active'],
+			'frequency'      => (string) $all['frequency'],
+			'retentionDays'  => (int) $all['retention_days'],
 		);
 	}
 
@@ -275,21 +423,33 @@ final class Settings {
 		$current = $this->all();
 		$clean   = $current;
 
-		if ( array_key_exists( 'brand', $input ) ) {
-			$clean['brand'] = sanitize_text_field( (string) $input['brand'] );
+		// Accept the per-product list; still honour the older flat fields (brands +
+		// shared domain/competitors/prompts) by folding them into products.
+		if ( array_key_exists( 'targets', $input ) ) {
+			$clean['targets'] = $this->sanitize_targets( $input['targets'] );
+		} else {
+			$legacy = array();
+			foreach ( array( 'brands', 'brand', 'domain', 'competitors', 'prompts' ) as $k ) {
+				if ( array_key_exists( $k, $input ) ) {
+					$legacy[ $k ] = $input[ $k ];
+				}
+			}
+			if ( ! empty( $legacy ) ) {
+				$clean['targets'] = $this->sanitize_targets( $this->migrate_flat( $legacy ) );
+			}
 		}
-		if ( array_key_exists( 'domain', $input ) ) {
-			$clean['domain'] = $this->sanitize_domain( (string) $input['domain'] );
-		}
-		if ( array_key_exists( 'competitors', $input ) ) {
-			$clean['competitors'] = $this->sanitize_list( $input['competitors'], self::MAX_COMPETITORS );
-		}
-		if ( array_key_exists( 'prompts', $input ) ) {
-			$clean['prompts'] = $this->sanitize_list( $input['prompts'], self::MAX_PROMPTS, 300 );
+		if ( array_key_exists( 'active', $input ) || array_key_exists( 'scheduleActive', $input ) ) {
+			$clean['active'] = (bool) ( $input['active'] ?? $input['scheduleActive'] );
 		}
 		if ( array_key_exists( 'frequency', $input ) ) {
-			$freq              = sanitize_key( (string) $input['frequency'] );
-			$clean['frequency'] = in_array( $freq, array( 'manual', 'daily', 'weekly' ), true ) ? $freq : 'weekly';
+			$freq = sanitize_key( (string) $input['frequency'] );
+			if ( 'manual' === $freq ) {
+				// Back-compat: an explicit "manual" now means the schedule is off.
+				$clean['active']    = false;
+				$clean['frequency'] = 'weekly';
+			} else {
+				$clean['frequency'] = in_array( $freq, array( 'daily', 'weekly' ), true ) ? $freq : 'weekly';
+			}
 		}
 		if ( array_key_exists( 'retentionDays', $input ) || array_key_exists( 'retention_days', $input ) ) {
 			$days                   = (int) ( $input['retentionDays'] ?? $input['retention_days'] );
@@ -315,11 +475,14 @@ final class Settings {
 				if ( array_key_exists( 'web_search', $in ) ) {
 					$cfg['web_search'] = ! empty( $meta['web_search_capable'] ) && (bool) $in['web_search'];
 				}
-				// A blank or masked key means "leave the stored key untouched"; any
-				// other value replaces it. Trim to kill accidental whitespace.
+				// The masked placeholder means "leave the stored key untouched" (this is
+				// what an untouched field sends). Any other value is taken literally —
+				// including an empty string, which clears (removes) the key. Because a
+				// saved key shows as dots in the field, an empty field is a deliberate
+				// clear, so this can't wipe a key by accident.
 				if ( array_key_exists( 'key', $in ) ) {
 					$key = trim( (string) $in['key'] );
-					if ( '' !== $key && self::KEY_MASK !== $key ) {
+					if ( self::KEY_MASK !== $key ) {
 						$cfg['key'] = sanitize_text_field( $key );
 					}
 				}
@@ -353,6 +516,43 @@ final class Settings {
 		}
 		$value = preg_replace( '/^www\./', '', $value );
 		return sanitize_text_field( $value );
+	}
+
+	/**
+	 * Sanitize the incoming products list: keep only named products, clean each one's
+	 * website/competitors/questions, and cap the number of products.
+	 *
+	 * @param mixed $targets Incoming products (or not).
+	 * @return array[]
+	 */
+	private function sanitize_targets( $targets ) {
+		if ( ! is_array( $targets ) ) {
+			return array();
+		}
+		$out = array();
+		foreach ( $targets as $t ) {
+			if ( ! is_array( $t ) ) {
+				continue;
+			}
+			$name = trim( sanitize_text_field( (string) ( $t['name'] ?? '' ) ) );
+			if ( '' === $name ) {
+				continue; // A product with no name can't be scored.
+			}
+			if ( strlen( $name ) > 120 ) {
+				$name = substr( $name, 0, 120 );
+			}
+			$out[] = array(
+				'name'        => $name,
+				'domain'      => $this->sanitize_domain( (string) ( $t['domain'] ?? '' ) ),
+				'active'      => array_key_exists( 'active', $t ) ? (bool) $t['active'] : true,
+				'competitors' => $this->sanitize_list( $t['competitors'] ?? array(), self::MAX_COMPETITORS ),
+				'prompts'     => $this->sanitize_list( $t['prompts'] ?? array(), self::MAX_PROMPTS, 300 ),
+			);
+			if ( count( $out ) >= self::MAX_TARGETS ) {
+				break;
+			}
+		}
+		return $out;
 	}
 
 	/**

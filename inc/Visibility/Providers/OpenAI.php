@@ -71,7 +71,8 @@ final class OpenAI extends Provider {
 				'model' => $model,
 				'tools' => array( array( 'type' => 'web_search' ) ),
 				'input' => $prompt,
-			)
+			),
+			self::WEB_TIMEOUT // Live web search runs a slow server-side loop.
 		);
 
 		if ( isset( $result['error'] ) ) {

@@ -18,20 +18,24 @@ defined( 'ABSPATH' ) || exit;
 final class Analyzer {
 
 	/**
+	 * Analyze one answer for a single tracked product: was its name mentioned, was
+	 * its website cited, where does it rank against its competitors, and which of
+	 * those competitors showed up.
+	 *
 	 * @param array    $result      Provider result { text, citations, error }.
-	 * @param string   $brand       Brand/name to look for.
-	 * @param string   $domain      Bare site host (for citation detection).
-	 * @param string[] $competitors Competitor names to look for.
+	 * @param string   $name        The product/brand name to look for.
+	 * @param string   $domain      The product's bare host (for citation detection).
+	 * @param string[] $competitors The product's competitor names.
 	 * @return array { mentioned, cited, position, competitors }
 	 */
-	public static function analyze( array $result, $brand, $domain, array $competitors ) {
+	public static function analyze( array $result, $name, $domain, array $competitors ) {
 		$text = (string) ( $result['text'] ?? '' );
 
-		$brand_present  = self::contains( $text, $brand );
+		$name_present   = self::contains( $text, $name );
 		$domain_in_text = self::contains( $text, $domain );
 		$domain_cited   = $domain_in_text || self::domain_in_citations( $domain, (array) ( $result['citations'] ?? array() ) );
 
-		$mentioned = $brand_present || $domain_in_text;
+		$mentioned = $name_present || $domain_in_text;
 
 		$found_competitors = array();
 		foreach ( $competitors as $c ) {
@@ -43,7 +47,7 @@ final class Analyzer {
 		return array(
 			'mentioned'   => $mentioned,
 			'cited'       => $domain_cited,
-			'position'    => self::position( $text, $brand, $competitors, $mentioned ),
+			'position'    => self::position( $text, $name, $competitors, $mentioned ),
 			'competitors' => $found_competitors,
 		);
 	}

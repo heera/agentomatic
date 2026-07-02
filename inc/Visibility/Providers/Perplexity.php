@@ -30,7 +30,8 @@ final class Perplexity extends Provider {
 				'messages' => array(
 					array( 'role' => 'user', 'content' => $prompt ),
 				),
-			)
+			),
+			self::WEB_TIMEOUT // Perplexity always answers from a live search.
 		);
 
 		if ( isset( $result['error'] ) ) {

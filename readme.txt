@@ -4,7 +4,7 @@ Tags: ai-agents, ai-crawlers, agent-readiness, llms-txt, ai-seo
 Requires at least: 6.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 1.10.1
+Stable tag: 1.12.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -31,7 +31,7 @@ By default it makes no outbound requests, collects no analytics, and logs no IP 
 
 * **Agent activity log** — a dashboard of which AI crawlers and agents actually fetch your content and endpoints (GPTBot, Claude, Perplexity, Googlebot, …), recorded first-party in your own database, with no IP logging.
 * **Activity to review** — a nav-bar queue surfaces the clients worth a second look — new, unusually high-volume, or spoofing what they are — names a recognised crawler where it can, and offers one-click **Block** or **Allow** (trust). Nothing is blocked unless you choose to.
-* **AI Visibility (opt-in)** — ask ChatGPT, Perplexity, Gemini and Claude the questions your audience asks and track whether they actually **mention and cite you**, over time: a visibility score, citation rate, share-of-voice against competitors, and a per-prompt breakdown. Off by default; **you bring your own API key** for each engine, and this is the one feature that makes an outbound request (see *External services*).
+* **AI Visibility (opt-in)** — track **each brand, product or person you choose** across ChatGPT, Perplexity, Gemini and Claude. For every one, Agentimus asks the questions your audience actually types and reports whether it gets **mentioned, linked, and how it ranks against its own rivals** — over time. Each thing you track has its own website, competitors, questions and scoreboard; pause any single one, or the whole schedule, whenever you like. Off by default; **you bring your own API key** for each engine, and this is the one feature that makes an outbound request (see *External services*).
 
 **Content — clean, machine-readable output**
 
@@ -181,6 +181,7 @@ Yes. The discovery document implements the **WP_Discovery Protocol**, an openly-
 6. Activity to review — a nav-bar alert surfaces new, high-volume or spoofed clients from any screen, with one-click Block or Allow (no IP logging).
 7. About — a plain-English account of every feature and what it publishes, a privacy & data section (no outbound calls, no IP/PII, signing key stays on your server), the open WP_Discovery Protocol it implements, and an FAQ.
 8. Exposure controls — opt-in, off-by-default switches that limit what anonymous crawlers can read about your site: username enumeration, author archives, the WordPress version, auto-generated head links, and XML-RPC.
+9. AI Visibility — an opt-in, bring-your-own-key scoreboard showing whether ChatGPT, Perplexity, Gemini and Claude mention and link each brand, product or person you track: seen-in-answers and linked-your-site rates, rank against each item's own rivals, and question-by-question results with the sources each engine cited. Off by default; you bring your own API key and nothing runs until you enable it.
 
 == External services ==
 
@@ -202,6 +203,34 @@ The example URLs in `examples/integrate-your-plugin.php` (on `example.com`) are 
 There is no minified-only code. The admin interface is built from Vue 3 source in `resources/` with Vite; the source and `vite.config.js` ship in this package and also live in the public repository at https://github.com/heera/agentimus . Run `npm install && npm run build` to regenerate `assets/admin/` from source.
 
 == Changelog ==
+
+= 1.12.4 =
+* Fixed — live web-search checks no longer time out on slower questions: grounded engines (Claude, Perplexity, ChatGPT, Gemini) get a longer request window, and Claude runs fewer searches per check so answers come back sooner.
+* Improved — when a check fails, the reason (for example a timeout) now shows inline under the result, instead of only on hover.
+
+= 1.12.3 =
+* Improved — clearer wording on the AI Visibility results summary: it no longer calls tracked items "products" (they can be a person, brand or product), and the sentence is shorter and easier to read.
+
+= 1.12.2 =
+* Fixed — while a check runs in the background, the scoreboard now keeps showing your last complete results instead of a half-finished snapshot with jumping numbers; the figures update in one step when the run finishes.
+* Fixed — an in-progress question edit is now saved before a run starts and before you leave the panel, and a save that fails is clearly flagged "Not saved" rather than disappearing silently.
+
+= 1.12.1 =
+* Fixed — a tracked item that has a question but wasn't part of the last check no longer shows the misleading "No questions to ask yet"; it now invites you to run a check instead.
+* Fixed — an engine's live-web indicator now dims when that engine is switched off, matching the rest of the row.
+
+= 1.12.0 =
+* New — **Claude live web search.** Claude (Anthropic) can now answer from a live web search, the same opt-in already offered for ChatGPT and Gemini. Turn it on per engine and Claude searches the live web and cites its sources — so its "linked your site" score reflects what AI can actually find, not only what it remembered.
+* New — **See the sources.** Question-by-question results now list the actual pages each engine cited, with a small "web" marker on answers that used a live search — so you can see exactly where AI is getting its information about you.
+* Improved — **Checks run in the background.** "Run check now" no longer times out on slow runs (a live web search makes each answer take longer). The check runs in the background and results fill in on their own when it finishes.
+* Improved — **Clearer engine settings.** The live-web option now reads consistently across engines: Perplexity shows "Always live web" (it always searches), while ChatGPT, Gemini and Claude show a "Live web" on/off toggle you control.
+* Improved — Saving the AI Visibility settings now shows a confirmation toast, other plugins' admin notices no longer clutter the Agentimus screens, and the old preview/sample-data shortcut was removed in favour of running a real check. Your existing results are kept; the results table upgrades itself automatically on load.
+
+= 1.11.0 =
+* New — **AI Visibility monitoring** (opt-in, bring-your-own-key): see how AI assistants actually describe you, over time. Add each brand, product or person you want to watch — every one gets its own website, competitors and questions — and Agentimus asks ChatGPT, Perplexity, Gemini and Claude the questions your audience types, then reports whether each one is **mentioned, linked, and how it ranks against its own rivals**. You get a plain-English scoreboard per item (seen-in-answers %, linked %, rank), an overall trend line, question-by-question results, and share-of-voice bars against each item's rivals.
+* Off by default, and it stays that way until you choose. It's the one feature that makes an outbound request — only to the engines you enable, using API keys you provide (stored on your own server), and only when a check runs. Results are stored locally. See *External services* for the full disclosure.
+* Automatic checks are opt-in. Because each scheduled run spends your own API budget, Agentimus never starts recurring checks on your behalf: turn on "Run checks automatically" (daily or weekly) when you're ready, or use "Run check now" any time. Pause any single item, or the whole schedule, without losing its setup — and a fresh install schedules nothing at all until it's both switched on and has a question and a key to run.
+* Settings save as you go: add a name, website, rival or question and each change saves on its own, with clear per-item "Saved" feedback, editable chips (click one to fix it), and a plain reminder when an item still needs a name or a question before it can be checked.
 
 = 1.10.1 =
 * Fix: the Exposure tab now saves. The five Exposure toggles weren't wired into the admin's auto-save, so flipping one looked like it did nothing and reverted on reload. The settings were always handled correctly on the server — only the admin screen's save trigger was missing. No data or settings were lost.
@@ -296,6 +325,24 @@ There is no minified-only code. The admin interface is built from Vue 3 source i
 * Admin Discovery Hub for inspecting what agents can see, with per-item publish/suppress control.
 
 == Upgrade Notice ==
+
+= 1.12.4 =
+Fixes live web-search checks timing out on slower questions, and shows check errors inline. No breaking changes.
+
+= 1.12.3 =
+Clearer wording on the AI Visibility results summary. No breaking changes.
+
+= 1.12.2 =
+Fixes the AI Visibility scoreboard flickering while a background check runs, and hardens question auto-save. No breaking changes.
+
+= 1.12.1 =
+Minor fixes to the AI Visibility results and engine settings display. No breaking changes.
+
+= 1.12.0 =
+Adds live web search for Claude (opt-in, like ChatGPT and Gemini) and shows the source links each engine cited. Checks now run in the background so they no longer time out on slow runs. Your existing results are kept — the results table upgrades automatically on load.
+
+= 1.11.0 =
+Adds AI Visibility monitoring — an opt-in, bring-your-own-key tool that tracks whether ChatGPT, Perplexity, Gemini and Claude mention, link and rank each brand or product you track. Off by default, no outbound calls until you enable it; nothing else changes.
 
 = 1.10.1 =
 Fixes the Exposure tab not saving (the new toggles weren't wired into auto-save). Recommended for anyone on 1.10.0. No breaking changes.

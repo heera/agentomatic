@@ -19,8 +19,13 @@ defined( 'ABSPATH' ) || exit;
 
 abstract class Provider {
 
-	/** @var int Per-request timeout. Live-web providers can be slow. */
+	/** @var int Per-request timeout for a plain (from-memory) answer. */
 	const TIMEOUT = 45;
+
+	/** @var int Per-request timeout for a live web-search answer. The engine runs a
+	 * slow server-side loop (search → read → maybe search again → answer) before it
+	 * returns the first byte, so these need much more room than a memory answer. */
+	const WEB_TIMEOUT = 120;
 
 	/** @var int Upper bound (seconds) on a Retry-After backoff, so a run never hangs. */
 	const MAX_RETRY_WAIT = 8;
@@ -65,11 +70,13 @@ abstract class Provider {
 	 * @param string $url     Endpoint.
 	 * @param array  $headers Request headers.
 	 * @param array  $body    Body to JSON-encode.
+	 * @param int    $timeout Per-request timeout (seconds). Defaults to the plain
+	 *                        TIMEOUT; pass WEB_TIMEOUT for a live web-search call.
 	 * @return array { json?: array, error?: string }
 	 */
-	protected function post_json( $url, array $headers, array $body ) {
+	protected function post_json( $url, array $headers, array $body, $timeout = self::TIMEOUT ) {
 		$args = array(
-			'timeout' => self::TIMEOUT,
+			'timeout' => (int) $timeout,
 			'headers' => array_merge( array( 'content-type' => 'application/json' ), $headers ),
 			'body'    => wp_json_encode( $body ),
 		);

@@ -43,15 +43,13 @@ final class Runner {
 	 * }
 	 */
 	public function run() {
-		$prompts   = array_values( (array) $this->settings->get( 'prompts', array() ) );
-		$providers = $this->settings->active_providers();
+		$reason = $this->blocking_reason();
+		if ( '' !== $reason ) {
+			return array( 'ran' => false, 'reason' => $reason );
+		}
 
-		if ( empty( $prompts ) ) {
-			return array( 'ran' => false, 'reason' => 'no_prompts' );
-		}
-		if ( empty( $providers ) ) {
-			return array( 'ran' => false, 'reason' => 'no_providers' );
-		}
+		$targets   = array_values( (array) $this->settings->get( 'targets', array() ) );
+		$providers = $this->settings->active_providers();
 
 		// A run makes many sequential HTTP calls; give it room rather than risking
 		// a mid-run timeout on hosts that allow lifting the limit.
@@ -59,62 +57,88 @@ final class Runner {
 			@set_time_limit( 0 ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
 		}
 
-		// If the table currently holds sample data, drop it so real results don't
-		// share a trend with fabricated runs.
-		if ( Demo::is_active() ) {
-			Store::clear();
-		}
-
-		$brand       = (string) $this->settings->get( 'brand', '' );
-		$domain      = (string) $this->settings->get( 'domain', '' );
-		$competitors = (array) $this->settings->get( 'competitors', array() );
-
 		$run_id = time();
 		$checks = 0;
 
-		foreach ( $prompts as $prompt ) {
-			foreach ( $providers as $pid => $cfg ) {
-				$provider = Provider::make( $pid );
-				if ( ! $provider ) {
-					continue;
+		// Each product is checked on its own name, website and competitors, against
+		// its own list of questions. Paused products are skipped.
+		foreach ( $targets as $t ) {
+			if ( ! ( $t['active'] ?? true ) ) {
+				continue;
+			}
+			$name        = (string) ( $t['name'] ?? '' );
+			$domain      = (string) ( $t['domain'] ?? '' );
+			$competitors = (array) ( $t['competitors'] ?? array() );
+			$prompts     = array_values( (array) ( $t['prompts'] ?? array() ) );
+
+			foreach ( $prompts as $prompt ) {
+				foreach ( $providers as $pid => $cfg ) {
+					$provider = Provider::make( $pid );
+					if ( ! $provider ) {
+						continue;
+					}
+
+					// Smooth out bursts (helps the single-engine case most, where every
+					// check hits the same provider back to back). Skip before the first.
+					if ( $checks > 0 && self::PACE_MS > 0 ) {
+						usleep( self::PACE_MS * 1000 );
+					}
+
+					$result   = $provider->query( $prompt, $cfg['key'], $cfg['model'], ! empty( $cfg['web_search'] ) );
+					$analysis = Analyzer::analyze( $result, $name, $domain, $competitors );
+
+					Store::insert(
+						array(
+							'run_id'      => $run_id,
+							'brand'       => $name,
+							'provider'    => $pid,
+							'model'       => $cfg['model'],
+							'prompt'      => $prompt,
+							'mentioned'   => $analysis['mentioned'],
+							'cited'       => $analysis['cited'],
+							'position'    => $analysis['position'],
+							'competitors' => $analysis['competitors'],
+							'answer'      => $result['text'],
+							'sources'     => $result['citations'],
+							'error'       => $result['error'],
+						)
+					);
+					$checks++;
 				}
-
-				// Smooth out bursts (helps the single-engine case most, where every
-				// check hits the same provider back to back). Skip before the first.
-				if ( $checks > 0 && self::PACE_MS > 0 ) {
-					usleep( self::PACE_MS * 1000 );
-				}
-
-				$result   = $provider->query( $prompt, $cfg['key'], $cfg['model'], ! empty( $cfg['web_search'] ) );
-				$analysis = Analyzer::analyze( $result, $brand, $domain, $competitors );
-
-				Store::insert(
-					array(
-						'run_id'      => $run_id,
-						'provider'    => $pid,
-						'model'       => $cfg['model'],
-						'prompt'      => $prompt,
-						'mentioned'   => $analysis['mentioned'],
-						'cited'       => $analysis['cited'],
-						'position'    => $analysis['position'],
-						'competitors' => $analysis['competitors'],
-						'answer'      => $result['text'],
-						'error'       => $result['error'],
-					)
-				);
-				$checks++;
 			}
 		}
 
 		Store::prune( (int) $this->settings->get( 'retention_days', 180 ) );
 		update_option( self::LAST_RUN_OPTION, $run_id, false );
-		delete_option( Demo::FLAG ); // Real results now — no longer a sample.
 
 		return array(
 			'ran'    => true,
 			'runId'  => $run_id,
 			'checks' => $checks,
 		);
+	}
+
+	/**
+	 * Why a run can't do anything yet, or '' when it can. A run needs at least one
+	 * active product with a question, and at least one usable engine.
+	 *
+	 * @return string '' | 'no_prompts' | 'no_providers'
+	 */
+	public function blocking_reason() {
+		$has_prompts = false;
+		foreach ( (array) $this->settings->get( 'targets', array() ) as $t ) {
+			if ( ( $t['active'] ?? true ) && ! empty( $t['prompts'] ) ) {
+				$has_prompts = true;
+				break;
+			}
+		}
+		if ( ! $has_prompts ) {
+			return 'no_prompts';
+		}
+		if ( empty( $this->settings->active_providers() ) ) {
+			return 'no_providers';
+		}
+		return '';
 	}
 
 	/**

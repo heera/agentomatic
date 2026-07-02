@@ -10,7 +10,6 @@
 
 namespace Agentimus\Visibility;
 
-use Agentimus\Visibility\Demo;
 use Agentimus\Visibility\Module;
 use Agentimus\Visibility\Runner;
 use Agentimus\Visibility\Store;
@@ -91,10 +90,20 @@ final class Rest {
 
 		register_rest_route(
 			self::NS,
-			'/visibility/demo/(?P<action>seed|clear)',
+			'/visibility/reveal-key',
 			array(
 				'methods'             => \WP_REST_Server::EDITABLE,
-				'callback'            => array( $this, 'demo' ),
+				'callback'            => array( $this, 'reveal_key' ),
+				'permission_callback' => array( $this, 'can_manage' ),
+			)
+		);
+
+		register_rest_route(
+			self::NS,
+			'/visibility/clear',
+			array(
+				'methods'             => \WP_REST_Server::EDITABLE,
+				'callback'            => array( $this, 'clear_data' ),
 				'permission_callback' => array( $this, 'can_manage' ),
 			)
 		);
@@ -150,14 +159,26 @@ final class Rest {
 	}
 
 	/**
-	 * POST /run — perform a monitoring pass now and return fresh results.
+	 * POST /run — start a monitoring pass. A run makes many slow HTTP calls (more so
+	 * with live web search on) and can outlast the web server's gateway timeout, so
+	 * it runs in the background: this returns immediately and the admin polls
+	 * /dashboard for `running` to flip false. If nothing could run (no question or no
+	 * engine), that's reported right away instead of queuing a no-op.
 	 *
 	 * @return \WP_REST_Response
 	 */
 	public function run_now() {
-		$result  = ( new Runner( $this->settings ) )->run();
+		$reason  = ( new Runner( $this->settings ) )->blocking_reason();
 		$payload = $this->dashboard_payload();
-		$payload['run'] = $result;
+
+		if ( '' !== $reason ) {
+			$payload['run'] = array( 'ran' => false, 'reason' => $reason );
+			return rest_ensure_response( $payload );
+		}
+
+		( new Module( $this->settings ) )->queue_now();
+		$payload['run']     = array( 'queued' => true );
+		$payload['running'] = true;
 		return rest_ensure_response( $payload );
 	}
 
@@ -192,6 +213,22 @@ final class Rest {
 	}
 
 	/**
+	 * POST /reveal-key — return one provider's full stored key so an admin can view
+	 * or copy it. Gated by `manage_options` and the REST nonce; the key is sent only
+	 * on this explicit request, never in the config payload (see Settings::public_view).
+	 *
+	 * @param \WP_REST_Request $request Request.
+	 * @return \WP_REST_Response
+	 */
+	public function reveal_key( \WP_REST_Request $request ) {
+		$id  = sanitize_key( (string) $request->get_param( 'provider' ) );
+		$all = $this->settings->all();
+		$cfg = isset( $all['providers'][ $id ] ) ? $all['providers'][ $id ] : null;
+
+		return rest_ensure_response( array( 'key' => null === $cfg ? '' : (string) ( $cfg['key'] ?? '' ) ) );
+	}
+
+	/**
 	 * The config payload the UI boots and re-reads after a save.
 	 *
 	 * @return array
@@ -199,27 +236,27 @@ final class Rest {
 	private function config_payload() {
 		$view = $this->settings->public_view();
 
+		$prompt_count = 0;
+		foreach ( (array) $this->settings->get( 'targets', array() ) as $t ) {
+			$prompt_count += count( (array) ( $t['prompts'] ?? array() ) );
+		}
+
 		return array(
 			'config'         => $view,
 			'lastRunAt'      => $this->last_run_at(),
 			'activeProviders' => count( $this->settings->active_providers() ),
-			'promptCount'    => count( (array) $this->settings->get( 'prompts', array() ) ),
+			'promptCount'    => $prompt_count,
 		);
 	}
 
 	/**
-	 * POST /demo/seed|clear — load or wipe sample data so the Dashboard can be
-	 * viewed fully populated before any real key is connected.
+	 * POST /clear — wipe all stored monitoring results for this site.
 	 *
-	 * @param \WP_REST_Request $request Request.
 	 * @return \WP_REST_Response
 	 */
-	public function demo( \WP_REST_Request $request ) {
-		if ( 'clear' === $request->get_param( 'action' ) ) {
-			Demo::clear();
-		} else {
-			Demo::seed( $this->settings );
-		}
+	public function clear_data() {
+		Store::clear();
+		delete_option( Runner::LAST_RUN_OPTION );
 		return rest_ensure_response( $this->dashboard_payload() );
 	}
 
@@ -232,7 +269,7 @@ final class Rest {
 		return array(
 			'dashboard' => Store::dashboard( $this->settings ),
 			'lastRunAt' => $this->last_run_at(),
-			'isSample'  => Demo::is_active(),
+			'running'   => Module::is_running(),
 			'config'    => $this->settings->public_view(),
 		);
 	}

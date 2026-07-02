@@ -33,6 +33,7 @@ no SEO bloat, no framework.
 ## In the admin
 
 - **Readiness report** — pass/warn/fail checks, each with a plain-English suggestion and a deep link to the fix (including a "sitemap advertised in robots.txt" check).
+- **AI Visibility** (opt-in, bring-your-own-key) — track each brand, product or person you choose across ChatGPT, Perplexity, Gemini and Claude. For every one it asks the questions your audience types and reports whether it's **mentioned, linked, and how it ranks against its own rivals**, over time. Each item has its own website, competitors, questions and scoreboard; pause any single one or the whole schedule. Results are stored locally; it's the only feature that makes outbound calls — using API keys you provide, off by default.
 - **Agent activity log** — a local-only dashboard (no IP logged) of which AI agents and crawlers fetch your endpoints; repeat hits are grouped with a count, newest first.
 - **Activity to review** — flags new, unusually high-volume, or spoofed/scanner clients in a nav-bar review queue, each with one-click **Block** (or **Allow**/trust). Pairs with the opt-in *Block scanners & scrapers* enforcement in Settings.
 - **Factory reset** — one click restores every setting to its recommended defaults, with a preview of exactly what will change.

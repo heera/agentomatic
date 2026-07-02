@@ -7,26 +7,59 @@ export default {
   },
   emits: ['update:modelValue'],
   data() {
-    return { draft: '' };
+    // `editing` holds the tag value currently pulled into the input for editing.
+    // While set, that chip is hidden (it lives in the input) — with NO model
+    // update, so editing never triggers a save/toast on its own.
+    return { draft: '', editing: null };
+  },
+  computed: {
+    // Chips to render — the one being edited is shown in the input instead.
+    visibleTags() {
+      return this.editing === null ? this.modelValue : this.modelValue.filter((t) => t !== this.editing);
+    },
   },
   methods: {
-    add() {
+    // Commit the input: replace the edited tag in place, or append a new one.
+    // Emits at most once, and only when the list actually changes — so pressing
+    // Enter on an unchanged edit (or blurring an empty box) is silent.
+    commit() {
       const value = this.draft.trim();
-      if (!value || this.modelValue.includes(value)) {
-        this.draft = '';
-        return;
-      }
-      this.$emit('update:modelValue', [...this.modelValue, value]);
+      const editing = this.editing;
+      this.editing = null;
       this.draft = '';
-    },
-    remove(index) {
+
       const next = this.modelValue.slice();
-      next.splice(index, 1);
-      this.$emit('update:modelValue', next);
+      if (editing !== null) {
+        const at = next.indexOf(editing);
+        if (at !== -1) {
+          if (value === '' || (value !== editing && next.includes(value))) {
+            next.splice(at, 1); // cleared, or would duplicate another → drop it
+          } else {
+            next[at] = value; // edit in place, keeping its position
+          }
+        }
+      } else {
+        if (value === '' || next.includes(value)) return; // nothing new to add
+        next.push(value);
+      }
+
+      const changed = next.length !== this.modelValue.length || next.some((t, i) => t !== this.modelValue[i]);
+      if (changed) this.$emit('update:modelValue', next);
+    },
+    remove(tag) {
+      if (tag === this.editing) { this.editing = null; this.draft = ''; }
+      this.$emit('update:modelValue', this.modelValue.filter((t) => t !== tag));
+    },
+    // Click a chip to edit it: load it into the input. No emit here.
+    edit(tag) {
+      if (this.editing !== null) this.commit(); // finish any current edit first
+      this.editing = tag;
+      this.draft = tag;
+      this.$nextTick(() => { if (this.$refs.input) this.$refs.input.focus(); });
     },
     onKeydown(e) {
-      if (e.key === 'Backspace' && !this.draft && this.modelValue.length) {
-        this.remove(this.modelValue.length - 1);
+      if (e.key === 'Backspace' && !this.draft && this.visibleTags.length) {
+        this.remove(this.visibleTags[this.visibleTags.length - 1]);
       }
     },
   },
@@ -36,19 +69,20 @@ export default {
 <template>
   <div class="ar-tags">
     <ul class="ar-tags__list">
-      <li v-for="(tag, i) in modelValue" :key="tag" class="ar-tags__chip">
-        <span>{{ tag }}</span>
-        <button type="button" class="ar-tags__x" :aria-label="`Remove ${tag}`" @click="remove(i)">×</button>
+      <li v-for="tag in visibleTags" :key="tag" class="ar-tags__chip">
+        <button type="button" class="ar-tags__edit" :title="`Edit “${tag}”`" @click="edit(tag)">{{ tag }}</button>
+        <button type="button" class="ar-tags__x" :aria-label="`Remove ${tag}`" @click="remove(tag)">×</button>
       </li>
     </ul>
     <input
+      ref="input"
       v-model="draft"
       type="text"
       class="ar-tags__input"
       :placeholder="placeholder"
-      @keydown.enter.prevent="add"
+      @keydown.enter.prevent="commit"
       @keydown="onKeydown"
-      @blur="add"
+      @blur="commit"
     />
   </div>
 </template>

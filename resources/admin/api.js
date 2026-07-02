@@ -51,7 +51,8 @@ export function createApi(boot) {
     runVisibility: () => request('/visibility/run', { method: 'POST' }),
     testVisibilityKey: (payload) =>
       request('/visibility/test', { method: 'POST', body: JSON.stringify(payload) }),
-    seedVisibilityDemo: () => request('/visibility/demo/seed', { method: 'POST' }),
-    clearVisibilityData: () => request('/visibility/demo/clear', { method: 'POST' }),
+    revealVisibilityKey: (payload) =>
+      request('/visibility/reveal-key', { method: 'POST', body: JSON.stringify(payload) }),
+    clearVisibilityData: () => request('/visibility/clear', { method: 'POST' }),
   };
 }

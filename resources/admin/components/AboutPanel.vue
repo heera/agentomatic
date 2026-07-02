@@ -67,6 +67,13 @@ export default {
             { name: 'Activity & AI referrals', where: 'stored locally', desc: 'A local log of which agents hit your endpoints, and human visits referred by AI assistants.', tag: 'On' },
           ],
         },
+        {
+          title: 'AI Visibility monitoring',
+          lead: 'Optional — check how AI assistants actually describe you. The one feature that reaches out, using API keys you provide.',
+          items: [
+            { name: 'AI Visibility checks', where: 'AI Visibility tab · admin or on a schedule', desc: 'Asks ChatGPT, Perplexity, Gemini and Claude the questions you set, then tracks whether each brand or product you track gets mentioned, linked and ranked against its rivals. Results are stored locally.', tag: 'Opt-in' },
+          ],
+        },
       ],
       faqs: [
         { q: 'Do I need to configure anything?', a: 'No. Agentimus works the moment it’s activated, with safe defaults. Open Settings only if you want to add your identity details or change a default.' },
@@ -174,8 +181,9 @@ export default {
               No phone-home, no telemetry, no remote config. The only outbound calls come from the optional
               <strong>AI Visibility</strong> feature — off unless you switch it on and add your own AI API
               key, at which point it queries the engines you chose (OpenAI, Perplexity, Gemini, Claude) to
-              check whether they cite you. Your keys stay on your server. The “Verify live” readiness check
-              also runs in <em>your browser</em> against your own URLs.
+              check whether they cite you. Your keys stay on your server — masked in the admin, and shown
+              back only to you, only when you click “reveal” on your own key. The “Verify live” readiness
+              check also runs in <em>your browser</em> against your own URLs.
             </p>
           </div>
         </div>

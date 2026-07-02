@@ -15,7 +15,7 @@ defined( 'ABSPATH' ) || exit;
 final class Table {
 
 	/** Bump when the schema changes to trigger a dbDelta upgrade. */
-	const VERSION        = '1';
+	const VERSION        = '4';
 	const VERSION_OPTION = 'agentimus_visibility_db_version';
 
 	/**
@@ -55,6 +55,7 @@ final class Table {
   id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
   run_id bigint(20) unsigned NOT NULL DEFAULT 0,
   checked_at datetime NOT NULL,
+  brand varchar(191) NOT NULL DEFAULT '',
   provider varchar(32) NOT NULL DEFAULT '',
   model varchar(96) NOT NULL DEFAULT '',
   prompt_hash char(32) NOT NULL DEFAULT '',
@@ -64,6 +65,7 @@ final class Table {
   position smallint(6) NOT NULL DEFAULT 0,
   competitors text NOT NULL,
   answer_excerpt text NOT NULL,
+  sources text NOT NULL,
   error varchar(191) NOT NULL DEFAULT '',
   PRIMARY KEY  (id),
   KEY run_id (run_id),
